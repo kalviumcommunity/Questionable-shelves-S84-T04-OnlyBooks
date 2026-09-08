@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AuthPage from "./views/AuthPage";
 import ResearchPortal from "./views/ResearchPortal";
 import SynthesisView from "./views/SynthesisView";
+import { authApi, getStoredToken } from "./services/api";
 
 export type AppView = "auth" | "portal" | "synthesis";
 
@@ -12,9 +13,13 @@ export interface Query {
 }
 
 export interface User {
+  id?: string;
   name: string;
   initials: string;
   email: string;
+  affiliation?: string;
+  role?: string;
+  provider?: string;
 }
 
 const SEED_HISTORY: Query[] = [
@@ -29,10 +34,40 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [activeQuery, setActiveQuery] = useState<Query | null>(null);
   const [queryHistory, setQueryHistory] = useState<Query[]>(SEED_HISTORY);
+  const [loadingSession, setLoadingSession] = useState(true);
+
+  // Restore authenticated session on initial mount
+  useEffect(() => {
+    const token = getStoredToken();
+    if (!token) {
+      setLoadingSession(false);
+      return;
+    }
+
+    authApi.getMe()
+      .then((profile) => {
+        setUser(profile);
+        setView("portal");
+      })
+      .catch(() => {
+        authApi.logout();
+        setUser(null);
+        setView("auth");
+      })
+      .finally(() => {
+        setLoadingSession(false);
+      });
+  }, []);
 
   function handleAuth(u: User) {
     setUser(u);
     setView("portal");
+  }
+
+  function handleSignOut() {
+    authApi.logout();
+    setUser(null);
+    setView("auth");
   }
 
   function handleQuery(question: string) {
@@ -51,6 +86,37 @@ export default function App() {
     setView("synthesis");
   }
 
+  if (loadingSession) {
+    return (
+      <div
+        style={{
+          height: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#FAFAFA",
+          fontFamily: "var(--font-sans)",
+        }}
+      >
+        <p
+          style={{
+            fontFamily: "var(--font-serif)",
+            fontSize: "1.2rem",
+            fontStyle: "italic",
+            color: "#1C1C1C",
+            marginBottom: "0.5rem",
+          }}
+        >
+          OnlyBooks · University Library Archive
+        </p>
+        <p style={{ fontSize: "0.72rem", color: "#9CA3AF", letterSpacing: "0.08em" }}>
+          VERIFYING INSTITUTIONAL CREDENTIALS…
+        </p>
+      </div>
+    );
+  }
+
   if (view === "auth") {
     return <AuthPage onAuth={handleAuth} />;
   }
@@ -61,7 +127,7 @@ export default function App() {
         user={user!}
         onQuery={handleQuery}
         recentQueries={queryHistory.slice(0, 4)}
-        onSignOut={() => { setUser(null); setView("auth"); }}
+        onSignOut={handleSignOut}
       />
     );
   }

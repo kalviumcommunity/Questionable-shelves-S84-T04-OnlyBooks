@@ -1,5 +1,6 @@
 import { useState, KeyboardEvent, FormEvent } from "react";
 import type { User } from "../App";
+import { authApi } from "../services/api";
 
 interface Props {
   onAuth: (user: User) => void;
@@ -75,18 +76,9 @@ export default function AuthPage({ onAuth }: Props) {
   const [password, setPassword] = useState("");
   const [affiliation, setAffiliation] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  function getInitials(fullName: string): string {
-    return fullName
-      .trim()
-      .split(" ")
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((w) => w[0].toUpperCase())
-      .join("");
-  }
-
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
 
@@ -103,10 +95,60 @@ export default function AuthPage({ onAuth }: Props) {
       return;
     }
 
-    const resolvedName = mode === "signup" ? name.trim() : email.split("@")[0];
-    const initials = getInitials(resolvedName) || email.slice(0, 2).toUpperCase();
+    setLoading(true);
+    try {
+      if (mode === "signup") {
+        const res = await authApi.register({
+          name: name.trim(),
+          email: email.trim(),
+          password,
+          affiliation: affiliation.trim() || undefined,
+        });
+        onAuth(res.user);
+      } else {
+        const res = await authApi.login({
+          email: email.trim(),
+          password,
+        });
+        onAuth(res.user);
+      }
+    } catch (err: any) {
+      setError(err.message || "Authentication failed. Please verify your credentials.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
-    onAuth({ name: resolvedName, initials, email });
+  async function handleSSO(provider: "google_scholar" | "orcid" | "institutional_sso") {
+    setError("");
+    setLoading(true);
+    try {
+      const providerEmail =
+        provider === "google_scholar"
+          ? "scholar.fellow@university.edu"
+          : provider === "orcid"
+          ? "orcid.researcher@academic.org"
+          : "guest.researcher@university.edu";
+
+      const providerName =
+        provider === "google_scholar"
+          ? "Google Scholar Fellow"
+          : provider === "orcid"
+          ? "ORCID Visiting Scholar"
+          : "Institutional Researcher";
+
+      const res = await authApi.sso({
+        provider,
+        email: providerEmail,
+        name: providerName,
+        affiliation: "University Research Faculty",
+      });
+      onAuth(res.user);
+    } catch (err: any) {
+      setError(err.message || "SSO verification failed.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -312,9 +354,10 @@ export default function AuthPage({ onAuth }: Props) {
 
               <button
                 type="submit"
+                disabled={loading}
                 style={{
                   width: "100%",
-                  background: "#1C1C1C",
+                  background: loading ? "#4B5563" : "#1C1C1C",
                   color: "#FAFAFA",
                   border: "none",
                   padding: "0.75rem 1.5rem",
@@ -323,14 +366,23 @@ export default function AuthPage({ onAuth }: Props) {
                   fontWeight: 500,
                   letterSpacing: "0.06em",
                   textTransform: "uppercase",
-                  cursor: "pointer",
+                  cursor: loading ? "wait" : "pointer",
                   transition: "background 0.15s",
                   marginBottom: "1.5rem",
+                  opacity: loading ? 0.8 : 1,
                 }}
-                onMouseOver={(e) => (e.currentTarget.style.background = "#0F172A")}
-                onMouseOut={(e) => (e.currentTarget.style.background = "#1C1C1C")}
+                onMouseOver={(e) => {
+                  if (!loading) e.currentTarget.style.background = "#0F172A";
+                }}
+                onMouseOut={(e) => {
+                  if (!loading) e.currentTarget.style.background = "#1C1C1C";
+                }}
               >
-                {mode === "login" ? "Sign In to the Archive" : "Create Your Archive"}
+                {loading
+                  ? "Authenticating Credentials…"
+                  : mode === "login"
+                  ? "Sign In to the Archive"
+                  : "Create Your Archive"}
               </button>
 
               <p style={{ fontSize: "0.7rem", textAlign: "center", color: "#9CA3AF" }}>
@@ -372,13 +424,15 @@ export default function AuthPage({ onAuth }: Props) {
             {/* Institutional SSO buttons */}
             <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
               {[
-                { label: "Google Scholar / Google", icon: "G" },
-                { label: "ORCID iD", icon: "○" },
-                { label: "Institutional SSO", icon: "⊡" },
-              ].map(({ label, icon }) => (
+                { label: "Google Scholar / Google", icon: "G", provider: "google_scholar" as const },
+                { label: "ORCID iD", icon: "○", provider: "orcid" as const },
+                { label: "Institutional SSO", icon: "⊡", provider: "institutional_sso" as const },
+              ].map(({ label, icon, provider }) => (
                 <button
                   key={label}
-                  onClick={() => onAuth({ name: "Guest Researcher", initials: "GR", email: "guest@athenaeum.edu" })}
+                  type="button"
+                  disabled={loading}
+                  onClick={() => handleSSO(provider)}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -388,13 +442,18 @@ export default function AuthPage({ onAuth }: Props) {
                     padding: "0.625rem 1rem",
                     fontSize: "0.75rem",
                     color: "#1C1C1C",
-                    cursor: "pointer",
+                    cursor: loading ? "wait" : "pointer",
                     transition: "border-color 0.12s",
                     textAlign: "left",
                     width: "100%",
+                    opacity: loading ? 0.7 : 1,
                   }}
-                  onMouseOver={(e) => (e.currentTarget.style.borderColor = "#9CA3AF")}
-                  onMouseOut={(e) => (e.currentTarget.style.borderColor = "#E5E7EB")}
+                  onMouseOver={(e) => {
+                    if (!loading) e.currentTarget.style.borderColor = "#9CA3AF";
+                  }}
+                  onMouseOut={(e) => {
+                    if (!loading) e.currentTarget.style.borderColor = "#E5E7EB";
+                  }}
                 >
                   <span
                     style={{
