@@ -1,6 +1,6 @@
 // OnlyBooks Frontend API Service
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
 
 export interface UserProfile {
   id: string;
@@ -68,6 +68,14 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   });
 
   if (!response.ok) {
+    if (
+      response.status === 401 &&
+      endpoint !== "/auth/login" &&
+      endpoint !== "/auth/register" &&
+      endpoint !== "/auth/sso"
+    ) {
+      clearStoredToken();
+    }
     let errorDetail = "An error occurred with the academic server.";
     try {
       const errorJson = await response.json();

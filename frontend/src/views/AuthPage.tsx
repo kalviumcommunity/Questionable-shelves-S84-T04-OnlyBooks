@@ -352,6 +352,69 @@ export default function AuthPage({ onAuth }: Props) {
                 </p>
               )}
 
+              {mode === "login" && (
+                <div
+                  style={{
+                    marginBottom: "1.25rem",
+                    padding: "0.625rem 0.75rem",
+                    background: "#F8FAFC",
+                    border: "1px solid #E2E8F0",
+                  }}
+                >
+                  <p
+                    style={{
+                      fontSize: "0.58rem",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.12em",
+                      color: "#64748B",
+                      marginBottom: "0.375rem",
+                    }}
+                  >
+                    Quick-Fill Demo Accounts
+                  </p>
+                  <div style={{ display: "flex", gap: "0.5rem" }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEmail("katherine@university.edu");
+                        setPassword("scholar2026");
+                        setError("");
+                      }}
+                      style={{
+                        background: "#FFFFFF",
+                        border: "1px solid #CBD5E1",
+                        padding: "0.25rem 0.5rem",
+                        fontSize: "0.68rem",
+                        color: "#1E293B",
+                        cursor: "pointer",
+                        transition: "all 0.1s",
+                      }}
+                    >
+                      Katherine (Student)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEmail("vance@library.university.edu");
+                        setPassword("archive2026");
+                        setError("");
+                      }}
+                      style={{
+                        background: "#FFFFFF",
+                        border: "1px solid #CBD5E1",
+                        padding: "0.25rem 0.5rem",
+                        fontSize: "0.68rem",
+                        color: "#1E293B",
+                        cursor: "pointer",
+                        transition: "all 0.1s",
+                      }}
+                    >
+                      Dr. Vance (Librarian)
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <button
                 type="submit"
                 disabled={loading}

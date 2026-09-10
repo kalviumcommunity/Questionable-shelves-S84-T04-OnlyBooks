@@ -1,16 +1,47 @@
-import asyncio
 import pytest
 from httpx import AsyncClient, ASGITransport
-from app.main import app
-from app.database import engine, Base
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy.pool import StaticPool
 
-@pytest.fixture(autouse=True, scope="function")
-def init_test_db():
-    async def _init():
-        async with engine.begin() as conn:
+from app.main import app
+from app.database import Base, get_db
+from app.models.user import User
+
+# In-memory isolated database for tests
+test_engine = create_async_engine(
+    "sqlite+aiosqlite:///:memory:",
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
+
+TestSessionLocal = async_sessionmaker(
+    bind=test_engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+    autocommit=False,
+    autoflush=False,
+)
+
+async def override_get_db():
+    async with TestSessionLocal() as session:
+        try:
+            yield session
+        finally:
+            await session.close()
+
+app.dependency_overrides[get_db] = override_get_db
+
+import asyncio
+
+@pytest.fixture(autouse=True)
+def setup_db():
+    async def _reset():
+        async with test_engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
             await conn.run_sync(Base.metadata.create_all)
-    asyncio.run(_init())
+    asyncio.run(_reset())
     yield
+    asyncio.run(_reset())
 
 @pytest.mark.asyncio
 async def test_healthcheck():
@@ -37,9 +68,10 @@ async def test_auth_full_cycle():
         assert "access_token" in reg_data
         assert reg_data["user"]["name"] == "Alexander Wright"
         assert reg_data["user"]["initials"] == "AW"
+        assert reg_data["user"]["role"] == "student"
         token = reg_data["access_token"]
 
-        # 2. Duplicate registration should fail
+        # 2. Duplicate registration should fail with 400
         dup_res = await ac.post("/api/auth/register", json=reg_payload)
         assert dup_res.status_code == 400
 
@@ -58,16 +90,27 @@ async def test_auth_full_cycle():
         })
         assert bad_login.status_code == 401
 
-        # 5. Get current user profile with token
+        # 5. Login with non-existent email
+        no_user = await ac.post("/api/auth/login", json={
+            "email": "unknown.scholar@university.edu",
+            "password": "Password123!",
+        })
+        assert no_user.status_code == 401
+
+        # 6. Get current user profile with token
         me_res = await ac.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
         assert me_res.status_code == 200
         assert me_res.json()["email"] == "alex.wright@university.edu"
 
-        # 6. Request /me without token should fail
+        # 7. Request /me without token should fail
         unauth_res = await ac.get("/api/auth/me")
         assert unauth_res.status_code == 401
 
-        # 7. Institutional SSO login
+        # 8. Request /me with malformed token should fail
+        bad_token_res = await ac.get("/api/auth/me", headers={"Authorization": "Bearer invalid.token.value"})
+        assert bad_token_res.status_code == 401
+
+        # 9. Institutional SSO login (auto-provisioning)
         sso_res = await ac.post("/api/auth/sso", json={
             "provider": "institutional_sso",
             "email": "visiting.scholar@athenaeum.edu",
@@ -78,3 +121,12 @@ async def test_auth_full_cycle():
         sso_data = sso_res.json()
         assert sso_data["user"]["role"] == "researcher"
         assert sso_data["user"]["initials"] == "PR"
+
+        # 10. Repeat SSO login for same user returns existing user
+        sso_repeat = await ac.post("/api/auth/sso", json={
+            "provider": "institutional_sso",
+            "email": "visiting.scholar@athenaeum.edu",
+        })
+        assert sso_repeat.status_code == 200
+        assert sso_repeat.json()["user"]["name"] == "Prof. Elena Rostova"
+
