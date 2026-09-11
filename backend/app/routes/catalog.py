@@ -14,7 +14,10 @@ from ..schemas.catalog import (
     DocumentDetailResponse,
     DocumentSectionResponse,
     AcquisitionsResponse,
+    DocumentDepositRequest,
+    DocumentDepositResponse,
 )
+from ..services.ingestion_service import IngestionService
 
 router = APIRouter(prefix="/catalog", tags=["Library Catalog"])
 
@@ -148,3 +151,16 @@ async def get_document(doc_id: str, db: AsyncSession = Depends(get_db)):
         pages_label=f"{doc.total_pages} pp.",
         sections=sections,
     )
+
+@router.post("/deposit", response_model=DocumentDepositResponse, status_code=status.HTTP_201_CREATED)
+async def deposit_document(
+    request: DocumentDepositRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Deposit a new scholarly manuscript, paper, thesis, or syllabus pack into the library.
+    Parses chapters, persists database records, and dynamically indexes chunks
+    into the live hybrid vector and lexical retriever for immediate synthesis.
+    """
+    response = await IngestionService.deposit(db, request)
+    return response

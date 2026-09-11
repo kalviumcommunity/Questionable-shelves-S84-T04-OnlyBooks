@@ -2,6 +2,7 @@ import { useState, useEffect, KeyboardEvent } from "react";
 import type { Query, User } from "../App";
 import { ACQUISITIONS, LibraryItem } from "../data/libraryKnowledge";
 import { catalogApi, CatalogMetrics, CatalogDocument } from "../services/api";
+import DepositModal from "../components/DepositModal";
 
 type FilterType = "all" | "papers" | "theses" | "reserves";
 
@@ -18,6 +19,14 @@ export default function ResearchPortal({ user, onQuery, recentQueries, onSignOut
   const [filter, setFilter] = useState<FilterType>("all");
   const [metrics, setMetrics] = useState<CatalogMetrics | null>(null);
   const [liveAcquisitions, setLiveAcquisitions] = useState<CatalogDocument[]>([]);
+  const [isDepositOpen, setIsDepositOpen] = useState(false);
+
+  function handleRefreshCatalog() {
+    catalogApi.getMetrics().then((m) => setMetrics(m)).catch(() => {});
+    catalogApi.getAcquisitions(filter).then((res) => {
+      if (res.items && res.items.length > 0) setLiveAcquisitions(res.items);
+    }).catch(() => {});
+  }
 
   useEffect(() => {
     catalogApi.getMetrics()
@@ -93,10 +102,31 @@ export default function ResearchPortal({ user, onQuery, recentQueries, onSignOut
         >
           OnlyBooks · University Library Archive
         </div>
-        <nav className="flex items-center gap-7">
+        <nav className="flex items-center gap-6">
           <NavLink onClick={() => setFilter("papers")}>Research Papers</NavLink>
           <NavLink onClick={() => setFilter("theses")}>Theses & Dissertations</NavLink>
           <NavLink onClick={() => setFilter("reserves")}>Course Reserves</NavLink>
+
+          <button
+            onClick={() => setIsDepositOpen(true)}
+            style={{
+              background: "#1C1C1C",
+              color: "#FAFAFA",
+              border: "1px solid #1C1C1C",
+              padding: "0.25rem 0.65rem",
+              fontSize: "0.68rem",
+              letterSpacing: "0.03em",
+              fontWeight: 500,
+              cursor: "pointer",
+              transition: "background 0.12s",
+            }}
+            onMouseOver={(e) => (e.currentTarget.style.background = "#0F172A")}
+            onMouseOut={(e) => (e.currentTarget.style.background = "#1C1C1C")}
+            title="Deposit scholarly paper, thesis or syllabus to university archives"
+          >
+            + Deposit Manuscript
+          </button>
+
           <button
             onClick={onSignOut}
             style={{
@@ -461,6 +491,14 @@ export default function ResearchPortal({ user, onQuery, recentQueries, onSignOut
           </div>
         </div>
       </div>
+
+      <DepositModal
+        isOpen={isDepositOpen}
+        onClose={() => setIsDepositOpen(false)}
+        onSuccess={() => {
+          handleRefreshCatalog();
+        }}
+      />
     </div>
   );
 }

@@ -31,6 +31,11 @@ class HybridRetriever:
         self.bm25_indexer.index_chunks(chunks)
         self._is_indexed = True
 
+    def add_chunks(self, new_chunks: List[LibraryChunk]) -> None:
+        """Dynamically add new chunks to existing dense and BM25 indices."""
+        all_chunks = list(self.dense_indexer.chunks) + new_chunks
+        self.index_chunks(all_chunks)
+
     async def index_from_database(self, session: AsyncSession) -> int:
         """Fetch all documents and document sections from SQL database and index them."""
         query = select(Document).options(selectinload(Document.sections))
