@@ -9,6 +9,7 @@ from .models.user import User
 from .utils.security import get_password_hash
 from .routes import auth_router, catalog_router
 from .seeds.catalog_seed import seed_initial_catalog
+from .services import hybrid_retriever
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -16,9 +17,10 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     
-    # Pre-seed demo users & library catalog if not present
+    # Pre-seed demo users, library catalog & index into hybrid retriever
     async with AsyncSessionLocal() as session:
         await seed_initial_catalog(session)
+        await hybrid_retriever.index_from_database(session)
 
         result = await session.execute(select(User).where(User.email == "katherine@university.edu"))
         existing_demo = result.scalars().first()
