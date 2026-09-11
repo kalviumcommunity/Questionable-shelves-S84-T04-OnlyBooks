@@ -7,6 +7,13 @@ from .catalog import (
     AcquisitionsResponse,
 )
 
+from .inquiry import (
+    InquiryRequest,
+    CitationItem,
+    SynthesisParagraph,
+    SynthesisResponse,
+)
+
 __all__ = [
     "UserRegister",
     "UserLogin",
@@ -18,5 +25,9 @@ __all__ = [
     "DocumentSummaryResponse",
     "DocumentDetailResponse",
     "AcquisitionsResponse",
+    "InquiryRequest",
+    "CitationItem",
+    "SynthesisParagraph",
+    "SynthesisResponse",
 ]
 
