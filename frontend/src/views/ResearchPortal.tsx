@@ -1,6 +1,7 @@
-import { useState, KeyboardEvent } from "react";
+import { useState, useEffect, KeyboardEvent } from "react";
 import type { Query, User } from "../App";
 import { ACQUISITIONS, LibraryItem } from "../data/libraryKnowledge";
+import { catalogApi, CatalogMetrics, CatalogDocument } from "../services/api";
 
 type FilterType = "all" | "papers" | "theses" | "reserves";
 
@@ -15,6 +16,24 @@ export default function ResearchPortal({ user, onQuery, recentQueries, onSignOut
   const [input, setInput] = useState("");
   const [focused, setFocused] = useState(false);
   const [filter, setFilter] = useState<FilterType>("all");
+  const [metrics, setMetrics] = useState<CatalogMetrics | null>(null);
+  const [liveAcquisitions, setLiveAcquisitions] = useState<CatalogDocument[]>([]);
+
+  useEffect(() => {
+    catalogApi.getMetrics()
+      .then((m) => setMetrics(m))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    catalogApi.getAcquisitions(filter)
+      .then((res) => {
+        if (res.items && res.items.length > 0) {
+          setLiveAcquisitions(res.items);
+        }
+      })
+      .catch(() => {});
+  }, [filter]);
 
   function submit() {
     const trimmed = input.trim();
@@ -27,12 +46,31 @@ export default function ResearchPortal({ user, onQuery, recentQueries, onSignOut
     if (e.key === "Enter") submit();
   }
 
-  const filteredAcquisitions = ACQUISITIONS.filter((item) => {
-    if (filter === "papers") return item.collectionType === "Faculty Research";
-    if (filter === "theses") return item.collectionType === "Doctoral Thesis";
-    if (filter === "reserves") return item.collectionType === "Course Reserve";
-    return true;
-  });
+  const displayAcquisitions = liveAcquisitions.length > 0
+    ? liveAcquisitions.map((doc) => ({
+        id: doc.id,
+        field: doc.field,
+        title: doc.title,
+        author: doc.author,
+        year: doc.year,
+        pages: doc.pages_label,
+        callNumber: doc.call_number,
+        collectionType: doc.collection_name || "Library Holding",
+      }))
+    : ACQUISITIONS.filter((item) => {
+        if (filter === "papers") return item.collectionType === "Faculty Research";
+        if (filter === "theses") return item.collectionType === "Doctoral Thesis";
+        if (filter === "reserves") return item.collectionType === "Course Reserve";
+        return true;
+      });
+
+  const holdingsStats = [
+    [metrics ? `${metrics.total_papers.toLocaleString()}+` : "148,000+", "University research papers"],
+    [metrics ? `${metrics.total_theses.toLocaleString()}+` : "24,500+", "Doctoral & master's theses"],
+    [metrics ? `${metrics.total_reserves.toLocaleString()}+` : "6,200+", "Course syllabus reserves"],
+    [metrics ? metrics.last_sync : "Live Sync", "University library catalogs"],
+  ];
+
 
   return (
     <div
@@ -148,12 +186,7 @@ export default function ResearchPortal({ user, onQuery, recentQueries, onSignOut
               >
                 Holdings at a Glance
               </p>
-              {[
-                ["148,000+", "University research papers"],
-                ["24,500+", "Doctoral & master's theses"],
-                ["6,200+", "Course syllabus reserves"],
-                ["Live Sync", "University library catalogs"],
-              ].map(([val, label]) => (
+              {holdingsStats.map(([val, label]) => (
                 <div
                   key={label}
                   style={{
@@ -343,13 +376,13 @@ export default function ResearchPortal({ user, onQuery, recentQueries, onSignOut
               Curated University Holdings & Trending Dissertations
             </p>
             <p style={{ fontSize: "0.65rem", color: "#9CA3AF" }}>
-              Showing {filteredAcquisitions.length} cataloged resources
+              Showing {displayAcquisitions.length} cataloged resources
             </p>
           </div>
 
           {/* Masonry grid */}
           <div style={{ columns: "3", columnGap: "1rem" }}>
-            {filteredAcquisitions.map((item) => (
+            {displayAcquisitions.map((item) => (
               <div
                 key={item.id}
                 onClick={() => onQuery(item.title)}

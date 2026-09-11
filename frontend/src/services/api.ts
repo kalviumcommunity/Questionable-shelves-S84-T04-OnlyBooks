@@ -129,3 +129,65 @@ export const authApi = {
     clearStoredToken();
   },
 };
+
+export interface CatalogMetrics {
+  total_documents: number;
+  total_papers: number;
+  total_theses: number;
+  total_reserves: number;
+  total_press: number;
+  last_sync: string;
+}
+
+export interface CatalogDocument {
+  id: string;
+  title: string;
+  author: string;
+  year: string;
+  field: string;
+  collection_id: string;
+  collection_name?: string;
+  call_number: string;
+  doi?: string;
+  journal_or_press?: string;
+  total_pages: number;
+  pages_label: string;
+}
+
+export interface CatalogSection {
+  id: string;
+  chapter_num: string;
+  chapter_title: string;
+  start_page: number;
+  end_page: number;
+  content_text?: string;
+}
+
+export interface CatalogDocumentDetail extends CatalogDocument {
+  sections: CatalogSection[];
+}
+
+export interface AcquisitionsResponse {
+  items: CatalogDocument[];
+  total: number;
+  collection_filter: string;
+}
+
+export const catalogApi = {
+  async getMetrics(): Promise<CatalogMetrics> {
+    return request<CatalogMetrics>("/catalog/metrics", { method: "GET" });
+  },
+
+  async getAcquisitions(collection?: string, search?: string): Promise<AcquisitionsResponse> {
+    const params = new URLSearchParams();
+    if (collection && collection !== "all") params.append("collection", collection);
+    if (search && search.trim()) params.append("search", search.trim());
+    const query = params.toString() ? `?${params.toString()}` : "";
+    return request<AcquisitionsResponse>(`/catalog/acquisitions${query}`, { method: "GET" });
+  },
+
+  async getDocument(docId: string): Promise<CatalogDocumentDetail> {
+    return request<CatalogDocumentDetail>(`/catalog/documents/${docId}`, { method: "GET" });
+  },
+};
+

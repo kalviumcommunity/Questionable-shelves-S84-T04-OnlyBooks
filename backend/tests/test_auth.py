@@ -1,37 +1,10 @@
+import asyncio
 import pytest
 from httpx import AsyncClient, ASGITransport
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from sqlalchemy.pool import StaticPool
 
 from app.main import app
-from app.database import Base, get_db
-from app.models.user import User
-
-# In-memory isolated database for tests
-test_engine = create_async_engine(
-    "sqlite+aiosqlite:///:memory:",
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
-
-TestSessionLocal = async_sessionmaker(
-    bind=test_engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-    autocommit=False,
-    autoflush=False,
-)
-
-async def override_get_db():
-    async with TestSessionLocal() as session:
-        try:
-            yield session
-        finally:
-            await session.close()
-
-app.dependency_overrides[get_db] = override_get_db
-
-import asyncio
+from app.database import Base
+from conftest import test_engine
 
 @pytest.fixture(autouse=True)
 def setup_db():
@@ -41,7 +14,7 @@ def setup_db():
             await conn.run_sync(Base.metadata.create_all)
     asyncio.run(_reset())
     yield
-    asyncio.run(_reset())
+
 
 @pytest.mark.asyncio
 async def test_healthcheck():

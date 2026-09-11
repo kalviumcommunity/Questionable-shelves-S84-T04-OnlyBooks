@@ -7,7 +7,8 @@ from .config import settings
 from .database import engine, Base, AsyncSessionLocal
 from .models.user import User
 from .utils.security import get_password_hash
-from .routes.auth import router as auth_router
+from .routes import auth_router, catalog_router
+from .seeds.catalog_seed import seed_initial_catalog
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -15,8 +16,10 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     
-    # Pre-seed demo users if not present
+    # Pre-seed demo users & library catalog if not present
     async with AsyncSessionLocal() as session:
+        await seed_initial_catalog(session)
+
         result = await session.execute(select(User).where(User.email == "katherine@university.edu"))
         existing_demo = result.scalars().first()
         if not existing_demo:
@@ -59,6 +62,7 @@ app.add_middleware(
 
 # Include Routers
 app.include_router(auth_router, prefix=settings.API_V1_STR)
+app.include_router(catalog_router, prefix=settings.API_V1_STR)
 
 @app.get("/api/health", tags=["Health"])
 async def health():
