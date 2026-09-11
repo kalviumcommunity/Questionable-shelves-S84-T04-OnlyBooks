@@ -189,7 +189,41 @@ export const catalogApi = {
   async getDocument(docId: string): Promise<CatalogDocumentDetail> {
     return request<CatalogDocumentDetail>(`/catalog/documents/${docId}`, { method: "GET" });
   },
+
+  async deposit(payload: DocumentDepositRequest): Promise<DocumentDepositResponse> {
+    return request<DocumentDepositResponse>("/catalog/deposit", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
 };
+
+export interface DocumentDepositRequest {
+  title: string;
+  author: string;
+  year: string;
+  field: string;
+  collection_id: string;
+  call_number?: string;
+  doi?: string;
+  journal_or_press?: string;
+  total_pages?: number;
+  content_text?: string;
+}
+
+export interface DocumentDepositResponse {
+  document_id: string;
+  title: string;
+  author: string;
+  year: string;
+  collection_id: string;
+  collection_name: string;
+  call_number: string;
+  total_pages: number;
+  sections_count: number;
+  indexed: boolean;
+  message: string;
+}
 
 export interface InquiryRequest {
   question: string;
