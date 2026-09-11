@@ -7,7 +7,12 @@ from .config import settings
 from .database import engine, Base, AsyncSessionLocal
 from .models.user import User
 from .utils.security import get_password_hash
-from .routes import auth_router, catalog_router, inquiries_router
+from .routes import (
+    auth_router,
+    catalog_router,
+    inquiries_router,
+    reading_room_router,
+)
 from .seeds.catalog_seed import seed_initial_catalog
 from .services import hybrid_retriever
 
@@ -66,6 +71,8 @@ app.add_middleware(
 app.include_router(auth_router, prefix=settings.API_V1_STR)
 app.include_router(catalog_router, prefix=settings.API_V1_STR)
 app.include_router(inquiries_router, prefix=settings.API_V1_STR)
+app.include_router(reading_room_router, prefix=settings.API_V1_STR)
+
 
 
 @app.get("/api/health", tags=["Health"])

@@ -14,6 +14,13 @@ from .inquiry import (
     SynthesisResponse,
 )
 
+from .reading_room import (
+    ReadingRoomBlock,
+    ReadingRoomSection,
+    ReadingRoomResponse,
+    RawPageResponse,
+)
+
 __all__ = [
     "UserRegister",
     "UserLogin",
@@ -29,5 +36,10 @@ __all__ = [
     "CitationItem",
     "SynthesisParagraph",
     "SynthesisResponse",
+    "ReadingRoomBlock",
+    "ReadingRoomSection",
+    "ReadingRoomResponse",
+    "RawPageResponse",
 ]
+
 
