@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import type { Citation, DocumentRecord } from "../data/libraryKnowledge";
+import { readingRoomApi, ReadingRoomResponse, RawPageResponse } from "../services/api";
 
 interface Props {
   citation: Citation;
@@ -206,10 +207,128 @@ const DOCUMENTS: Record<number, { totalPages: number; sections: DocSection[] }> 
 // ── Component ──────────────────────────────────────────────────────────────
 
 export default function ReadingRoom({ citation, onClose, documentRecord }: Props) {
-  const doc = documentRecord ?? DOCUMENTS[citation.id] ?? DOCUMENTS[1];
+  const [liveDoc, setLiveDoc] = useState<ReadingRoomResponse | null>(null);
+  const [loadingDoc, setLoadingDoc] = useState(false);
   const [sectionIdx, setSectionIdx] = useState(0);
   const [focusMode, setFocusMode] = useState(false);
-  const [pageInput, setPageInput] = useState(citation.page.replace("Pg. ", ""));
+
+  // Raw leaf OCR transcript mode
+  const [rawMode, setRawMode] = useState(false);
+  const [rawPage, setRawPage] = useState<RawPageResponse | null>(null);
+  const [loadingRaw, setLoadingRaw] = useState(false);
+
+  const initialPage = useMemo(() => {
+    const parsed = parseInt(citation.page.replace(/\D+/g, ""), 10);
+    return isNaN(parsed) ? 1 : parsed;
+  }, [citation.page]);
+
+  const [activePage, setActivePage] = useState<number>(initialPage);
+  const [pageInput, setPageInput] = useState<string>(initialPage.toString());
+
+  // Fetch live document sections & highlight block from API
+  useEffect(() => {
+    const pageNum = parseInt(citation.page.replace(/\D+/g, ""), 10) || 1;
+    setActivePage(pageNum);
+    setPageInput(pageNum.toString());
+    setRawMode(false);
+    setRawPage(null);
+
+    if (!citation.documentId) {
+      setLiveDoc(null);
+      return;
+    }
+
+    let isMounted = true;
+    setLoadingDoc(true);
+
+    readingRoomApi
+      .getReadingRoom(citation.documentId, pageNum, citation.id, citation.extractedQuote)
+      .then((res) => {
+        if (!isMounted) return;
+        setLiveDoc(res);
+        const secIndex = res.sections.findIndex(
+          (s) => s.start_page <= pageNum && pageNum <= s.end_page
+        );
+        setSectionIdx(secIndex >= 0 ? secIndex : 0);
+        setLoadingDoc(false);
+      })
+      .catch((err) => {
+        console.warn("Could not retrieve live reading room, using archival fallback:", err);
+        if (isMounted) setLoadingDoc(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [citation.id, citation.documentId, citation.page, citation.extractedQuote]);
+
+  // Handle jump to page
+  function handleJumpPage(pageNum: number) {
+    if (isNaN(pageNum) || pageNum < 1) return;
+    setActivePage(pageNum);
+    setPageInput(pageNum.toString());
+
+    if (citation.documentId) {
+      setLoadingDoc(true);
+      readingRoomApi
+        .getReadingRoom(citation.documentId, pageNum, citation.id, citation.extractedQuote)
+        .then((res) => {
+          setLiveDoc(res);
+          const secIndex = res.sections.findIndex(
+            (s) => s.start_page <= pageNum && pageNum <= s.end_page
+          );
+          setSectionIdx(secIndex >= 0 ? secIndex : 0);
+          setLoadingDoc(false);
+        })
+        .catch(() => setLoadingDoc(false));
+
+      if (rawMode) {
+        setLoadingRaw(true);
+        readingRoomApi
+          .getRawPage(citation.documentId, pageNum)
+          .then((res) => {
+            setRawPage(res);
+            setLoadingRaw(false);
+          })
+          .catch(() => setLoadingRaw(false));
+      }
+    }
+  }
+
+  function toggleRawMode() {
+    const nextMode = !rawMode;
+    setRawMode(nextMode);
+    if (nextMode && citation.documentId && !rawPage) {
+      setLoadingRaw(true);
+      readingRoomApi
+        .getRawPage(citation.documentId, activePage)
+        .then((res) => {
+          setRawPage(res);
+          setLoadingRaw(false);
+        })
+        .catch(() => setLoadingRaw(false));
+    }
+  }
+
+  // Normalized document structure
+  const doc = useMemo(() => {
+    if (liveDoc) {
+      return {
+        totalPages: liveDoc.total_pages,
+        sections: liveDoc.sections.map((sec) => ({
+          chapterNum: sec.chapter_num,
+          chapterTitle: sec.chapter_title,
+          blocks: sec.blocks.map((b) => ({
+            type: b.type as "heading" | "paragraph" | "highlight" | "blockquote" | "rule",
+            text: b.text || "",
+            pageRef: b.page_ref,
+          })),
+        })),
+      };
+    }
+    return documentRecord ?? DOCUMENTS[citation.id] ?? DOCUMENTS[1];
+  }, [liveDoc, documentRecord, citation.id]);
+
   const section = doc.sections[sectionIdx] ?? doc.sections[0];
 
   const viewer = (
@@ -256,15 +375,21 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
         </div>
 
         {/* Controls */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
             <span style={{ fontSize: "0.6rem", color: "#9CA3AF" }}>p.</span>
             <input
               type="text"
               value={pageInput}
               onChange={(e) => setPageInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  const num = parseInt(pageInput, 10);
+                  if (!isNaN(num)) handleJumpPage(num);
+                }
+              }}
               style={{
-                width: 30,
+                width: 32,
                 fontSize: "0.65rem",
                 textAlign: "center",
                 background: "#FFFFFF",
@@ -276,6 +401,13 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
             />
             <span style={{ fontSize: "0.6rem", color: "#9CA3AF" }}>/ {doc.totalPages}</span>
           </div>
+
+          <IconBtn
+            title={rawMode ? "Return to formatted reading room" : "Inspect raw archival leaf"}
+            onClick={toggleRawMode}
+          >
+            {rawMode ? "Formatted" : "Raw Leaf"}
+          </IconBtn>
 
           <IconBtn
             title={focusMode ? "Exit focus mode" : "Expand to focus mode"}
@@ -303,6 +435,24 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
           </button>
         </div>
       </div>
+
+      {loadingDoc && (
+        <div
+          style={{
+            padding: "0.3rem 1rem",
+            background: "#EFF6FF",
+            borderBottom: "1px solid #BFDBFE",
+            fontSize: "0.6rem",
+            color: "#1D4ED8",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+          }}
+        >
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#2563EB", display: "inline-block" }} />
+          <span>Retrieving in-situ passage from library catalog archive…</span>
+        </div>
+      )}
 
       {/* ── Body: chapter nav + page ── */}
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
@@ -434,169 +584,230 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
 
             {/* Page content */}
             <div style={{ padding: "2.5rem 2.5rem 3rem" }}>
-              {/* Chapter label */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.875rem",
-                  marginBottom: "1.75rem",
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: "0.58rem",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.16em",
-                    color: "#9CA3AF",
-                    flexShrink: 0,
-                  }}
-                >
-                  Chapter {section.chapterNum}
-                </span>
-                <div style={{ flex: 1, height: 1, background: "#E5E7EB" }} />
-              </div>
+              {rawMode ? (
+                <div>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: "1.5rem",
+                      paddingBottom: "0.5rem",
+                      borderBottom: "1px solid #E5E7EB",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: "0.58rem",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.14em",
+                        color: "#6B7280",
+                      }}
+                    >
+                      Archival Leaf Transcript · Page {activePage}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: "0.56rem",
+                        fontWeight: 600,
+                        color: "#0F172A",
+                        border: "1px solid #E5E7EB",
+                        padding: "0.08rem 0.35rem",
+                      }}
+                    >
+                      Rare Archive Holding
+                    </span>
+                  </div>
 
-              {/* Chapter title */}
-              <h2
-                style={{
-                  fontFamily: "var(--font-serif)",
-                  fontSize: focusMode ? "1.6rem" : "1.3rem",
-                  fontWeight: 500,
-                  lineHeight: 1.25,
-                  color: "#1C1C1C",
-                  marginBottom: "1.75rem",
-                  marginTop: 0,
-                }}
-              >
-                {section.chapterTitle}
-              </h2>
+                  {loadingRaw ? (
+                    <p style={{ fontSize: "0.8rem", fontStyle: "italic", color: "#9CA3AF" }}>
+                      Retrieving raw page text from rare book vault…
+                    </p>
+                  ) : (
+                    <pre
+                      style={{
+                        fontFamily: "'Courier New', Courier, monospace",
+                        fontSize: "0.82rem",
+                        lineHeight: 1.75,
+                        color: "#1F2937",
+                        whiteSpace: "pre-wrap",
+                        background: "#F9FAFB",
+                        padding: "1.25rem",
+                        border: "1px solid #E5E7EB",
+                        borderRadius: "2px",
+                      }}
+                    >
+                      {rawPage?.text_content || section.blocks.map((b) => b.text).filter(Boolean).join("\n\n")}
+                    </pre>
+                  )}
+                </div>
+              ) : (
+                <>
+                  {/* Chapter label */}
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.875rem",
+                      marginBottom: "1.75rem",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: "0.58rem",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.16em",
+                        color: "#9CA3AF",
+                        flexShrink: 0,
+                      }}
+                    >
+                      Chapter {section.chapterNum}
+                    </span>
+                    <div style={{ flex: 1, height: 1, background: "#E5E7EB" }} />
+                  </div>
 
-              {/* Blocks */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                {section.blocks.map((block, i) => {
-                  if (block.type === "rule") {
-                    return (
-                      <div
-                        key={i}
-                        style={{ height: 1, background: "#E5E7EB", margin: "0.75rem 0" }}
-                      />
-                    );
-                  }
-                  if (block.type === "heading") {
-                    return (
-                      <h3
-                        key={i}
-                        style={{
-                          fontFamily: "var(--font-serif)",
-                          fontSize: "1rem",
-                          fontWeight: 600,
-                          color: "#1C1C1C",
-                          marginTop: "0.5rem",
-                          marginBottom: 0,
-                        }}
-                      >
-                        {block.text}
-                      </h3>
-                    );
-                  }
-                  if (block.type === "paragraph") {
-                    return (
-                      <p
-                        key={i}
-                        style={{
-                          fontSize: focusMode ? "0.9rem" : "0.82rem",
-                          lineHeight: 1.85,
-                          color: "#1C1C1C",
-                          margin: 0,
-                          textAlign: "justify",
-                          hyphens: "auto",
-                        }}
-                      >
-                        {block.text}
-                      </p>
-                    );
-                  }
-                  if (block.type === "blockquote") {
-                    return (
-                      <blockquote
-                        key={i}
-                        style={{
-                          margin: "0.5rem 0",
-                          padding: "0.75rem 1.25rem",
-                          borderLeft: "2px solid #1C1C1C",
-                          fontFamily: "var(--font-serif)",
-                          fontStyle: "italic",
-                          fontSize: focusMode ? "0.95rem" : "0.875rem",
-                          lineHeight: 1.7,
-                          color: "#1C1C1C",
-                        }}
-                      >
-                        {block.text}
-                      </blockquote>
-                    );
-                  }
-                  if (block.type === "highlight") {
-                    return (
-                      <div key={i}>
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "0.5rem",
-                            marginBottom: "0.5rem",
-                          }}
-                        >
-                          <span
+                  {/* Chapter title */}
+                  <h2
+                    style={{
+                      fontFamily: "var(--font-serif)",
+                      fontSize: focusMode ? "1.6rem" : "1.3rem",
+                      fontWeight: 500,
+                      lineHeight: 1.25,
+                      color: "#1C1C1C",
+                      marginBottom: "1.75rem",
+                      marginTop: 0,
+                    }}
+                  >
+                    {section.chapterTitle}
+                  </h2>
+
+                  {/* Blocks */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                    {section.blocks.map((block, i) => {
+                      if (block.type === "rule") {
+                        return (
+                          <div
+                            key={i}
+                            style={{ height: 1, background: "#E5E7EB", margin: "0.75rem 0" }}
+                          />
+                        );
+                      }
+                      if (block.type === "heading") {
+                        return (
+                          <h3
+                            key={i}
                             style={{
-                              fontSize: "0.55rem",
-                              textTransform: "uppercase",
-                              letterSpacing: "0.14em",
-                              color: "#9CA3AF",
-                            }}
-                          >
-                            Extracted passage
-                          </span>
-                          <span
-                            style={{
-                              fontSize: "0.55rem",
+                              fontFamily: "var(--font-serif)",
+                              fontSize: "1rem",
                               fontWeight: 600,
-                              color: "#0F172A",
-                              border: "1px solid #E5E7EB",
-                              padding: "0.1rem 0.375rem",
-                              letterSpacing: "0.04em",
+                              color: "#1C1C1C",
+                              marginTop: "0.5rem",
+                              marginBottom: 0,
                             }}
                           >
-                            {block.pageRef}
-                          </span>
-                        </div>
-                        <div
-                          style={{
-                            padding: "1rem 1.25rem",
-                            backgroundColor: "rgba(254, 240, 138, 0.30)",
-                            borderLeft: "2px solid rgba(202, 138, 4, 0.4)",
-                          }}
-                        >
+                            {block.text}
+                          </h3>
+                        );
+                      }
+                      if (block.type === "paragraph") {
+                        return (
                           <p
+                            key={i}
                             style={{
                               fontSize: focusMode ? "0.9rem" : "0.82rem",
                               lineHeight: 1.85,
                               color: "#1C1C1C",
                               margin: 0,
-                              fontStyle: "italic",
                               textAlign: "justify",
                               hyphens: "auto",
                             }}
                           >
                             {block.text}
                           </p>
-                        </div>
-                      </div>
-                    );
-                  }
-                  return null;
-                })}
-              </div>
+                        );
+                      }
+                      if (block.type === "blockquote") {
+                        return (
+                          <blockquote
+                            key={i}
+                            style={{
+                              margin: "0.5rem 0",
+                              padding: "0.75rem 1.25rem",
+                              borderLeft: "2px solid #1C1C1C",
+                              fontFamily: "var(--font-serif)",
+                              fontStyle: "italic",
+                              fontSize: focusMode ? "0.95rem" : "0.875rem",
+                              lineHeight: 1.7,
+                              color: "#1C1C1C",
+                            }}
+                          >
+                            {block.text}
+                          </blockquote>
+                        );
+                      }
+                      if (block.type === "highlight") {
+                        return (
+                          <div key={i}>
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "0.5rem",
+                                marginBottom: "0.5rem",
+                              }}
+                            >
+                              <span
+                                style={{
+                                  fontSize: "0.55rem",
+                                  textTransform: "uppercase",
+                                  letterSpacing: "0.14em",
+                                  color: "#9CA3AF",
+                                }}
+                              >
+                                Extracted passage
+                              </span>
+                              <span
+                                style={{
+                                  fontSize: "0.55rem",
+                                  fontWeight: 600,
+                                  color: "#0F172A",
+                                  border: "1px solid #E5E7EB",
+                                  padding: "0.1rem 0.375rem",
+                                  letterSpacing: "0.04em",
+                                }}
+                              >
+                                {block.pageRef}
+                              </span>
+                            </div>
+                            <div
+                              style={{
+                                padding: "1rem 1.25rem",
+                                backgroundColor: "rgba(254, 240, 138, 0.30)",
+                                borderLeft: "2px solid rgba(202, 138, 4, 0.4)",
+                              }}
+                            >
+                              <p
+                                style={{
+                                  fontSize: focusMode ? "0.9rem" : "0.82rem",
+                                  lineHeight: 1.85,
+                                  color: "#1C1C1C",
+                                  margin: 0,
+                                  fontStyle: "italic",
+                                  textAlign: "justify",
+                                  hyphens: "auto",
+                                }}
+                              >
+                                {block.text}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })}
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Page footer */}

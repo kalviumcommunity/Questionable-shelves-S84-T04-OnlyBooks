@@ -7,7 +7,7 @@ type FilterType = "all" | "papers" | "theses" | "reserves";
 
 interface Props {
   user: User;
-  onQuery: (question: string) => void;
+  onQuery: (question: string, collectionFilter?: string) => void;
   recentQueries: Query[];
   onSignOut: () => void;
 }
@@ -38,7 +38,7 @@ export default function ResearchPortal({ user, onQuery, recentQueries, onSignOut
   function submit() {
     const trimmed = input.trim();
     if (trimmed) {
-      onQuery(trimmed);
+      onQuery(trimmed, filter);
     }
   }
 
@@ -314,7 +314,7 @@ export default function ResearchPortal({ user, onQuery, recentQueries, onSignOut
               {recentQueries.slice(0, 4).map((q) => (
                 <div
                   key={q.id}
-                  onClick={() => onQuery(q.question)}
+                  onClick={() => onQuery(q.question, q.collectionFilter || "all")}
                   style={{
                     display: "flex",
                     justifyContent: "space-between",

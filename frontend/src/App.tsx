@@ -10,6 +10,7 @@ export interface Query {
   id: string;
   question: string;
   timestamp: string;
+  collectionFilter?: string;
 }
 
 export interface User {
@@ -23,10 +24,10 @@ export interface User {
 }
 
 const SEED_HISTORY: Query[] = [
-  { id: "seed-1", question: "The epistemology of scientific consensus formation", timestamp: "29 Aug" },
-  { id: "seed-2", question: "Feminist critiques of Rawlsian distributive justice", timestamp: "27 Aug" },
-  { id: "seed-3", question: "Neuroplasticity and second-language acquisition in adults", timestamp: "24 Aug" },
-  { id: "seed-4", question: "Archive fever: Derrida and the politics of memory", timestamp: "21 Aug" },
+  { id: "seed-1", question: "The epistemology of scientific consensus formation", timestamp: "29 Aug", collectionFilter: "all" },
+  { id: "seed-2", question: "Feminist critiques of Rawlsian distributive justice", timestamp: "27 Aug", collectionFilter: "theses" },
+  { id: "seed-3", question: "Neuroplasticity and second-language acquisition in adults", timestamp: "24 Aug", collectionFilter: "papers" },
+  { id: "seed-4", question: "Archive fever: Derrida and the politics of memory", timestamp: "21 Aug", collectionFilter: "reserves" },
 ];
 
 export default function App() {
@@ -70,11 +71,12 @@ export default function App() {
     setView("auth");
   }
 
-  function handleQuery(question: string) {
+  function handleQuery(question: string, collectionFilter: string = "all") {
     const q: Query = {
       id: `q-${Date.now()}`,
       question,
       timestamp: new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" }),
+      collectionFilter,
     };
     setQueryHistory((prev) => [q, ...prev]);
     setActiveQuery(q);
