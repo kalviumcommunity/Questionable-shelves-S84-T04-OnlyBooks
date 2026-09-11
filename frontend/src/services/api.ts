@@ -191,3 +191,111 @@ export const catalogApi = {
   },
 };
 
+export interface InquiryRequest {
+  question: string;
+  collection_filter?: string;
+  user_id?: string;
+  top_k?: number;
+}
+
+export interface CitationItem {
+  id: number;
+  marker: string; // Unicode superscript e.g. "¹", "²"
+  document_id: string;
+  title: string;
+  author: string;
+  year: string;
+  journal?: string;
+  call_number: string;
+  collection_type: string;
+  page: string;
+  extracted_quote: string;
+  confidence_score: number;
+}
+
+export interface SynthesisParagraph {
+  text: string;
+}
+
+export interface SynthesisResponse {
+  inquiry_id: string;
+  question: string;
+  summary_byline: string;
+  paragraphs: SynthesisParagraph[];
+  citations: CitationItem[];
+  attribution_score: number;
+}
+
+export const inquiryApi = {
+  async synthesize(payload: InquiryRequest): Promise<SynthesisResponse> {
+    return request<SynthesisResponse>("/inquiries/synthesize", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async getSavedInquiry(inquiryId: string): Promise<SynthesisResponse> {
+    return request<SynthesisResponse>(`/inquiries/${inquiryId}`, {
+      method: "GET",
+    });
+  },
+};
+
+export interface ReadingRoomBlock {
+  type: "heading" | "paragraph" | "highlight" | "blockquote" | "rule";
+  text?: string;
+  page_ref?: string;
+}
+
+export interface ReadingRoomSection {
+  chapter_num: string;
+  chapter_title: string;
+  start_page: number;
+  end_page: number;
+  blocks: ReadingRoomBlock[];
+}
+
+export interface ReadingRoomResponse {
+  document_id: string;
+  title: string;
+  author: string;
+  call_number: string;
+  collection_type: string;
+  total_pages: number;
+  active_page: number;
+  active_chapter: string;
+  sections: ReadingRoomSection[];
+}
+
+export interface RawPageResponse {
+  document_id: string;
+  title: string;
+  page_number: number;
+  chapter_title: string;
+  text_content: string;
+}
+
+export const readingRoomApi = {
+  async getReadingRoom(
+    docId: string,
+    page?: number,
+    citationId?: number,
+    highlightQuote?: string
+  ): Promise<ReadingRoomResponse> {
+    const params = new URLSearchParams();
+    if (page !== undefined && page !== null) params.append("page", page.toString());
+    if (citationId !== undefined && citationId !== null) params.append("citation_id", citationId.toString());
+    if (highlightQuote && highlightQuote.trim()) params.append("highlight_quote", highlightQuote.trim());
+    const query = params.toString() ? `?${params.toString()}` : "";
+    return request<ReadingRoomResponse>(`/documents/${docId}/reading-room${query}`, {
+      method: "GET",
+    });
+  },
+
+  async getRawPage(docId: string, pageNum: number): Promise<RawPageResponse> {
+    return request<RawPageResponse>(`/documents/${docId}/raw-page/${pageNum}`, {
+      method: "GET",
+    });
+  },
+};
+

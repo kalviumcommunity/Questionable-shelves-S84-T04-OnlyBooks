@@ -11,7 +11,10 @@ export interface Citation {
   page: string;
   doi?: string;
   callNumber: string;
-  collectionType: "Faculty Research" | "Doctoral Thesis" | "Course Reserve" | "University Press";
+  collectionType: "Faculty Research" | "Doctoral Thesis" | "Course Reserve" | "University Press" | string;
+  documentId?: string;
+  extractedQuote?: string;
+  marker?: string;
 }
 
 export interface DocBlock {

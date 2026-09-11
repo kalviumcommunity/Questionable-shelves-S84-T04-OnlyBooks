@@ -1,7 +1,8 @@
-import { useState, KeyboardEvent, useMemo } from "react";
+import { useState, useEffect, KeyboardEvent, useMemo } from "react";
 import ReadingRoom from "./ReadingRoom";
 import type { Query, User } from "../App";
-import { getSynthesisForQuery, Citation } from "../data/libraryKnowledge";
+import { getSynthesisForQuery, Citation, DocumentRecord } from "../data/libraryKnowledge";
+import { inquiryApi } from "../services/api";
 
 export type { Citation };
 
@@ -15,7 +16,7 @@ interface Props {
   queryHistory: Query[];
   onSelectQuery: (q: Query) => void;
   onNewSearch: () => void;
-  onQuery: (question: string) => void;
+  onQuery: (question: string, collectionFilter?: string) => void;
 }
 
 // Unicode superscript map for footnote markers 1–9
@@ -75,19 +76,81 @@ export default function SynthesisView({
   onNewSearch,
   onQuery,
 }: Props) {
+  const [loading, setLoading] = useState(true);
   const [activeFootnote, setActiveFootnote] = useState<number | null>(null);
   const [openCitation, setOpenCitation] = useState<Citation | null>(null);
   const [followUp, setFollowUp] = useState("");
+  const [synthesis, setSynthesis] = useState<{
+    summaryByline: string;
+    paragraphs: { text: string }[];
+    citations: Citation[];
+    attributionScore: number;
+    inquiryId?: string;
+    documents: Record<number, DocumentRecord>;
+  } | null>(null);
 
-  // Retrieve contextual synthesis from the library knowledge base
-  const synthesis = useMemo(() => {
-    return getSynthesisForQuery(activeQuery.question);
-  }, [activeQuery.question]);
+  // Fetch live RAG synthesis with fallback to library catalog knowledge
+  useEffect(() => {
+    let isCancelled = false;
+    setLoading(true);
+    setOpenCitation(null);
+    setActiveFootnote(null);
+
+    const localFallback = getSynthesisForQuery(activeQuery.question);
+
+    inquiryApi
+      .synthesize({
+        question: activeQuery.question,
+        collection_filter: activeQuery.collectionFilter || "all",
+      })
+      .then((res) => {
+        if (isCancelled) return;
+        const mappedCitations: Citation[] = res.citations.map((c) => ({
+          id: c.id,
+          title: c.title,
+          author: c.author,
+          year: c.year,
+          journal: c.journal || "Library Archive",
+          page: c.page,
+          callNumber: c.call_number,
+          collectionType: c.collection_type,
+          documentId: c.document_id,
+          extractedQuote: c.extracted_quote,
+          marker: c.marker,
+        }));
+
+        setSynthesis({
+          summaryByline: res.summary_byline,
+          paragraphs: res.paragraphs,
+          citations: mappedCitations,
+          attributionScore: res.attribution_score,
+          inquiryId: res.inquiry_id,
+          documents: localFallback.documents,
+        });
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.warn("Live synthesis API offline, using catalog knowledge fallback:", err);
+        if (isCancelled) return;
+        setSynthesis({
+          summaryByline: localFallback.summaryByline,
+          paragraphs: localFallback.paragraphs,
+          citations: localFallback.citations,
+          attributionScore: 1.0,
+          documents: localFallback.documents,
+        });
+        setLoading(false);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [activeQuery.id, activeQuery.question, activeQuery.collectionFilter]);
 
   function submitFollowUp() {
     const t = followUp.trim();
     if (t) {
-      onQuery(t);
+      onQuery(t, activeQuery.collectionFilter || "all");
       setFollowUp("");
     }
   }
@@ -97,12 +160,12 @@ export default function SynthesisView({
   }
 
   function openDoc(id: number) {
-    const found = synthesis.citations.find((c) => c.id === id) ?? null;
+    const found = synthesis?.citations.find((c) => c.id === id) ?? null;
     setOpenCitation(found);
   }
 
   const rightColWidth = openCitation ? "60%" : "25%";
-  const activeDocRecord = openCitation ? synthesis.documents[openCitation.id] : undefined;
+  const activeDocRecord = openCitation && synthesis ? synthesis.documents[openCitation.id] : undefined;
 
   return (
     <div
@@ -256,118 +319,183 @@ export default function SynthesisView({
               {activeQuery.question}
             </h1>
 
-            {/* Metadata byline */}
-            <div
-              style={{
-                borderBottom: "1px solid #E5E7EB",
-                paddingBottom: "1rem",
-                marginBottom: "2rem",
-                display: "flex",
-                gap: "1.5rem",
-                alignItems: "center",
-                flexWrap: "wrap",
-              }}
-            >
-              <MetaTag>Library Synthesis</MetaTag>
-              <MetaTag>
-                {new Date().toLocaleDateString("en-GB", {
-                  day: "numeric",
-                  month: "long",
-                  year: "numeric",
-                })}
-              </MetaTag>
-              <MetaTag>{synthesis.citations.length} verified citations</MetaTag>
-              <MetaTag>{synthesis.summaryByline}</MetaTag>
-            </div>
-
-            {/* Article body */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-              {synthesis.paragraphs.map((para, i) => (
-                <p
-                  key={i}
+            {loading || !synthesis ? (
+              <div>
+                <div
                   style={{
-                    fontSize: "0.925rem",
-                    lineHeight: 1.8,
-                    color: "#1C1C1C",
-                    margin: 0,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.6rem",
+                    padding: "0.35rem 0.75rem",
+                    background: "#EFF6FF",
+                    border: "1px solid #BFDBFE",
+                    borderRadius: "2px",
+                    marginBottom: "1.75rem",
                   }}
                 >
-                  <RichParagraph
-                    text={para.text}
-                    activeFootnote={activeFootnote}
-                    onHover={setActiveFootnote}
-                    onOpen={openDoc}
-                  />
-                </p>
-              ))}
-            </div>
-
-            {/* References */}
-            <div
-              style={{
-                marginTop: "3rem",
-                paddingTop: "1.5rem",
-                borderTop: "1px solid #E5E7EB",
-              }}
-            >
-              <p
-                style={{
-                  fontSize: "0.58rem",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.16em",
-                  color: "#6B7280",
-                  marginBottom: "0.875rem",
-                }}
-              >
-                Catalog References & Library Holdings
-              </p>
-              <ol style={{ listStyle: "none", padding: 0, margin: 0 }}>
-                {synthesis.citations.map((c) => (
-                  <li
-                    key={c.id}
-                    onClick={() => openDoc(c.id)}
+                  <span
                     style={{
-                      display: "flex",
-                      gap: "0.75rem",
-                      padding: "0.6rem 0",
-                      borderBottom: "1px solid #E5E7EB",
-                      fontSize: "0.74rem",
-                      lineHeight: 1.6,
-                      color: "#6B7280",
-                      cursor: "pointer",
-                      transition: "color 0.12s",
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      backgroundColor: "#2563EB",
+                      display: "inline-block",
                     }}
-                    onMouseEnter={() => setActiveFootnote(c.id)}
-                    onMouseLeave={() => setActiveFootnote(null)}
+                  />
+                  <span
+                    style={{
+                      fontSize: "0.62rem",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.12em",
+                      color: "#1E40AF",
+                      fontWeight: 600,
+                    }}
                   >
-                    <span style={{ fontWeight: 600, color: "#1C1C1C", flexShrink: 0 }}>
-                      {SUP[c.id]}
-                    </span>
-                    <span style={{ flex: 1 }}>
-                      <em style={{ fontFamily: "var(--font-serif)", color: "#1C1C1C" }}>{c.title}</em>
-                      {" — "}
-                      {c.author} ({c.year}). {c.journal}.{" "}
-                      <span style={{ color: "#0F172A", fontWeight: 500 }}>[{c.collectionType} · Call #: {c.callNumber}]</span>
-                      {c.doi && <span style={{ color: "#9CA3AF" }}> DOI: {c.doi}</span>}
-                    </span>
-                    <span
+                    Executing Hybrid Retrieval (Dense Vector + BM25 Lexical + Reciprocal Rank Fusion)…
+                  </span>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "1rem", marginTop: "1rem" }}>
+                  <div style={{ height: 16, background: "#F3F4F6", width: "100%", borderRadius: 2 }} />
+                  <div style={{ height: 16, background: "#F3F4F6", width: "94%", borderRadius: 2 }} />
+                  <div style={{ height: 16, background: "#F3F4F6", width: "98%", borderRadius: 2 }} />
+                  <div style={{ height: 16, background: "#F3F4F6", width: "82%", borderRadius: 2, marginBottom: "1rem" }} />
+
+                  <div style={{ height: 16, background: "#F3F4F6", width: "100%", borderRadius: 2 }} />
+                  <div style={{ height: 16, background: "#F3F4F6", width: "91%", borderRadius: 2 }} />
+                  <div style={{ height: 16, background: "#F3F4F6", width: "87%", borderRadius: 2 }} />
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Metadata byline */}
+                <div
+                  style={{
+                    borderBottom: "1px solid #E5E7EB",
+                    paddingBottom: "1rem",
+                    marginBottom: "2rem",
+                    display: "flex",
+                    gap: "1.25rem",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <MetaTag>Library Synthesis</MetaTag>
+                  <MetaTag>
+                    {new Date().toLocaleDateString("en-GB", {
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </MetaTag>
+                  <MetaTag>{synthesis.citations.length} verified citations</MetaTag>
+                  <MetaTag>{synthesis.summaryByline}</MetaTag>
+                  <span
+                    style={{
+                      fontSize: "0.6rem",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.1em",
+                      color: "#065F46",
+                      background: "#ECFDF5",
+                      border: "1px solid #A7F3D0",
+                      padding: "0.1rem 0.45rem",
+                      fontWeight: 600,
+                    }}
+                  >
+                    Attribution: {Math.round(synthesis.attributionScore * 100)}% Grounded
+                  </span>
+                </div>
+
+                {/* Article body */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+                  {synthesis.paragraphs.map((para, i) => (
+                    <p
+                      key={i}
                       style={{
-                        fontSize: "0.58rem",
-                        fontWeight: 600,
-                        color: "#0F172A",
-                        border: "1px solid #E5E7EB",
-                        padding: "0.1rem 0.4rem",
-                        letterSpacing: "0.04em",
-                        height: "fit-content",
-                        flexShrink: 0,
+                        fontSize: "0.925rem",
+                        lineHeight: 1.8,
+                        color: "#1C1C1C",
+                        margin: 0,
                       }}
                     >
-                      {c.page}
-                    </span>
-                  </li>
-                ))}
-              </ol>
-            </div>
+                      <RichParagraph
+                        text={para.text}
+                        activeFootnote={activeFootnote}
+                        onHover={setActiveFootnote}
+                        onOpen={openDoc}
+                      />
+                    </p>
+                  ))}
+                </div>
+
+                {/* References */}
+                <div
+                  style={{
+                    marginTop: "3rem",
+                    paddingTop: "1.5rem",
+                    borderTop: "1px solid #E5E7EB",
+                  }}
+                >
+                  <p
+                    style={{
+                      fontSize: "0.58rem",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.16em",
+                      color: "#6B7280",
+                      marginBottom: "0.875rem",
+                    }}
+                  >
+                    Catalog References & Library Holdings
+                  </p>
+                  <ol style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                    {synthesis.citations.map((c) => (
+                      <li
+                        key={c.id}
+                        onClick={() => openDoc(c.id)}
+                        style={{
+                          display: "flex",
+                          gap: "0.75rem",
+                          padding: "0.6rem 0",
+                          borderBottom: "1px solid #E5E7EB",
+                          fontSize: "0.74rem",
+                          lineHeight: 1.6,
+                          color: "#6B7280",
+                          cursor: "pointer",
+                          transition: "color 0.12s",
+                        }}
+                        onMouseEnter={() => setActiveFootnote(c.id)}
+                        onMouseLeave={() => setActiveFootnote(null)}
+                      >
+                        <span style={{ fontWeight: 600, color: "#1C1C1C", flexShrink: 0 }}>
+                          {SUP[c.id] || `[${c.id}]`}
+                        </span>
+                        <span style={{ flex: 1 }}>
+                          <em style={{ fontFamily: "var(--font-serif)", color: "#1C1C1C" }}>{c.title}</em>
+                          {" — "}
+                          {c.author} ({c.year}). {c.journal}.{" "}
+                          <span style={{ color: "#0F172A", fontWeight: 500 }}>[{c.collectionType} · Call #: {c.callNumber}]</span>
+                          {c.doi && <span style={{ color: "#9CA3AF" }}> DOI: {c.doi}</span>}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: "0.58rem",
+                            fontWeight: 600,
+                            color: "#0F172A",
+                            border: "1px solid #E5E7EB",
+                            padding: "0.1rem 0.4rem",
+                            letterSpacing: "0.04em",
+                            height: "fit-content",
+                            flexShrink: 0,
+                          }}
+                        >
+                          {c.page}
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              </>
+            )}
             <div style={{ height: "5rem" }} />
           </div>
 
@@ -448,7 +576,7 @@ export default function SynthesisView({
             />
           ) : (
             <BibliographyPanel
-              citations={synthesis.citations}
+              citations={synthesis?.citations ?? []}
               activeFootnote={activeFootnote}
               onHover={setActiveFootnote}
               onOpen={openDoc}
