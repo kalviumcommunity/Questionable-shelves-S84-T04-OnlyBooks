@@ -260,6 +260,39 @@ export interface SynthesisResponse {
   attribution_score: number;
 }
 
+export interface InquirySummaryItem {
+  id: string;
+  question: string;
+  collection_filter?: string;
+  summary_byline?: string;
+  citations_count: number;
+  attribution_score: number;
+  timestamp: string;
+}
+
+export interface InquiryHistoryResponse {
+  items: InquirySummaryItem[];
+  total: number;
+}
+
+export interface StreamEventMetadata {
+  event: "metadata";
+  inquiry_id: string;
+  question: string;
+  summary_byline: string;
+  attribution_score: number;
+  total_citations: number;
+}
+
+export interface StreamEventDone {
+  event: "done";
+  inquiry_id: string;
+  summary_byline: string;
+  attribution_score: number;
+  total_paragraphs: number;
+  total_citations: number;
+}
+
 export const inquiryApi = {
   async synthesize(payload: InquiryRequest): Promise<SynthesisResponse> {
     return request<SynthesisResponse>("/inquiries/synthesize", {
@@ -272,6 +305,93 @@ export const inquiryApi = {
     return request<SynthesisResponse>(`/inquiries/${inquiryId}`, {
       method: "GET",
     });
+  },
+
+  async getHistory(limit: number = 25): Promise<InquiryHistoryResponse> {
+    return request<InquiryHistoryResponse>(`/inquiries?limit=${limit}`, {
+      method: "GET",
+    });
+  },
+
+  synthesizeStream(
+    payload: InquiryRequest,
+    callbacks: {
+      onMetadata?: (meta: StreamEventMetadata) => void;
+      onCitations?: (citations: CitationItem[]) => void;
+      onToken?: (token: string, paragraphIdx: number) => void;
+      onParagraphBreak?: (paragraphIdx: number) => void;
+      onDone?: (done: StreamEventDone) => void;
+      onError?: (err: Error) => void;
+    }
+  ): () => void {
+    const controller = new AbortController();
+    const token = getStoredToken();
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    fetch(`${API_BASE_URL}/inquiries/synthesize/stream`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`Server returned HTTP ${response.status}`);
+        }
+        if (!response.body) {
+          throw new Error("No response body received for streaming.");
+        }
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n\n");
+          buffer = lines.pop() || "";
+
+          for (const chunk of lines) {
+            const trimmed = chunk.trim();
+            if (!trimmed.startsWith("data: ")) continue;
+            try {
+              const eventData = JSON.parse(trimmed.slice(6));
+              switch (eventData.event) {
+                case "metadata":
+                  callbacks.onMetadata?.(eventData);
+                  break;
+                case "citations":
+                  callbacks.onCitations?.(eventData.citations);
+                  break;
+                case "token":
+                  callbacks.onToken?.(eventData.token, eventData.paragraph_idx);
+                  break;
+                case "paragraph_break":
+                  callbacks.onParagraphBreak?.(eventData.paragraph_idx);
+                  break;
+                case "done":
+                  callbacks.onDone?.(eventData);
+                  break;
+              }
+            } catch (e) {
+              console.warn("Failed to parse SSE event chunk:", e, trimmed);
+            }
+          }
+        }
+      })
+      .catch((err) => {
+        if (err.name !== "AbortError") {
+          callbacks.onError?.(err);
+        }
+      });
+
+    return () => controller.abort();
   },
 };
 

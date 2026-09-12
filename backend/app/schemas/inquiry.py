@@ -35,3 +35,18 @@ class SynthesisResponse(BaseModel):
     attribution_score: float = 1.0
 
     model_config = ConfigDict(from_attributes=True)
+
+class InquirySummaryItem(BaseModel):
+    id: str
+    question: str
+    collection_filter: Optional[str] = "all"
+    summary_byline: Optional[str] = None
+    citations_count: int = 0
+    attribution_score: float = 1.0
+    timestamp: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+class InquiryHistoryResponse(BaseModel):
+    items: List[InquirySummaryItem]
+    total: int

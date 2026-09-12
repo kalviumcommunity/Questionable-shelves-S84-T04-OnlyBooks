@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import AuthPage from "./views/AuthPage";
 import ResearchPortal from "./views/ResearchPortal";
 import SynthesisView from "./views/SynthesisView";
-import { authApi, getStoredToken } from "./services/api";
+import { authApi, inquiryApi, getStoredToken } from "./services/api";
 
 export type AppView = "auth" | "portal" | "synthesis";
 
@@ -37,6 +37,26 @@ export default function App() {
   const [queryHistory, setQueryHistory] = useState<Query[]>(SEED_HISTORY);
   const [loadingSession, setLoadingSession] = useState(true);
 
+  const loadHistory = () => {
+    inquiryApi.getHistory(15)
+      .then((res) => {
+        if (res.items && res.items.length > 0) {
+          const dbHistory: Query[] = res.items.map((it) => ({
+            id: it.id,
+            question: it.question,
+            timestamp: it.timestamp,
+            collectionFilter: it.collection_filter || "all",
+          }));
+          setQueryHistory((prev) => {
+            const existingIds = new Set(dbHistory.map((h) => h.id));
+            const filteredPrev = prev.filter((p) => !existingIds.has(p.id) && !p.id.startsWith("seed-"));
+            return [...dbHistory, ...filteredPrev];
+          });
+        }
+      })
+      .catch((e) => console.warn("Failed to load inquiry history:", e));
+  };
+
   // Restore authenticated session on initial mount
   useEffect(() => {
     const token = getStoredToken();
@@ -49,6 +69,7 @@ export default function App() {
       .then((profile) => {
         setUser(profile);
         setView("portal");
+        loadHistory();
       })
       .catch(() => {
         authApi.logout();
@@ -63,6 +84,7 @@ export default function App() {
   function handleAuth(u: User) {
     setUser(u);
     setView("portal");
+    loadHistory();
   }
 
   function handleSignOut() {

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -9,6 +10,8 @@ from ..schemas.inquiry import (
     SynthesisResponse,
     SynthesisParagraph,
     CitationItem,
+    InquiryHistoryResponse,
+    InquirySummaryItem,
 )
 from ..services.synthesizer import get_synthesizer
 from ..models import Inquiry, Synthesis, Citation
@@ -27,6 +30,66 @@ async def synthesize_inquiry(
     synthesizer = get_synthesizer()
     response = await synthesizer.synthesize(request, db=db)
     return response
+
+@router.post("/synthesize/stream")
+async def synthesize_inquiry_stream(
+    request: InquiryRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Stream a real-time citation-grounded research response via Server-Sent Events (SSE).
+    Emits metadata, citation inventory, typewriter tokens, and final persistence status.
+    """
+    synthesizer = get_synthesizer()
+    return StreamingResponse(
+        synthesizer.synthesize_stream(request, db=db),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+@router.get("", response_model=InquiryHistoryResponse)
+async def get_inquiry_history(
+    limit: int = 25,
+    db: AsyncSession = Depends(get_db),
+):
+    """Retrieve recent research inquiries and their synthesis attribution metadata."""
+    query = (
+        select(Inquiry)
+        .options(
+            selectinload(Inquiry.syntheses)
+            .selectinload(Synthesis.citations)
+        )
+        .order_by(Inquiry.timestamp.desc())
+        .limit(limit)
+    )
+    result = await db.execute(query)
+    inquiries = result.scalars().all()
+
+    items = []
+    for inq in inquiries:
+        syn = inq.syntheses[0] if inq.syntheses else None
+        citations_count = len(syn.citations) if syn and syn.citations else 0
+        attribution_score = syn.attribution_score if syn and syn.attribution_score is not None else 1.0
+        summary_byline = syn.summary_byline if syn else None
+        ts_str = inq.timestamp.strftime("%d %b") if inq.timestamp else "Recent"
+
+        items.append(
+            InquirySummaryItem(
+                id=inq.id,
+                question=inq.question,
+                collection_filter=inq.collection_filter or "all",
+                summary_byline=summary_byline,
+                citations_count=citations_count,
+                attribution_score=attribution_score,
+                timestamp=ts_str,
+            )
+        )
+
+    return InquiryHistoryResponse(items=items, total=len(items))
 
 @router.get("/{inquiry_id}", response_model=SynthesisResponse)
 async def get_saved_inquiry(
