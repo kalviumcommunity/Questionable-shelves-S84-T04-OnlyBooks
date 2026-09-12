@@ -196,6 +196,30 @@ export const catalogApi = {
       body: JSON.stringify(payload),
     });
   },
+
+  async uploadFile(formData: FormData): Promise<DocumentDepositResponse> {
+    const token = getStoredToken();
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+    const response = await fetch(`${API_BASE_URL}/catalog/upload`, {
+      method: "POST",
+      headers,
+      body: formData,
+    });
+    if (!response.ok) {
+      let errDetail = "Failed to upload document file.";
+      try {
+        const errJson = await response.json();
+        if (errJson.detail) errDetail = errJson.detail;
+      } catch {
+        errDetail = response.statusText || errDetail;
+      }
+      throw new Error(errDetail);
+    }
+    return response.json();
+  },
 };
 
 export interface DocumentDepositRequest {
@@ -311,6 +335,22 @@ export const inquiryApi = {
     return request<InquiryHistoryResponse>(`/inquiries?limit=${limit}`, {
       method: "GET",
     });
+  },
+
+  async getBibtex(inquiryId: string): Promise<string> {
+    const token = getStoredToken();
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+    const response = await fetch(`${API_BASE_URL}/inquiries/${inquiryId}/bibtex`, {
+      method: "GET",
+      headers,
+    });
+    if (!response.ok) {
+      throw new Error("Failed to export BibTeX citations.");
+    }
+    return response.text();
   },
 
   synthesizeStream(

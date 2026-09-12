@@ -1,9 +1,15 @@
 import re
+import io
 import random
 import uuid
-from typing import List, Tuple
+from typing import List, Tuple, Dict, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+
+try:
+    import pypdf
+except ImportError:
+    pypdf = None
 
 from ..models.document import Document
 from ..models.document_section import DocumentSection
@@ -262,3 +268,162 @@ class IngestionService:
             indexed=True,
             message=f"Successfully deposited and dynamically indexed into the {collection_name} archive.",
         )
+
+    @classmethod
+    def extract_file_content(
+        cls,
+        file_bytes: bytes,
+        filename: str,
+        default_title: Optional[str] = None,
+    ) -> Tuple[str, List[SectionDepositInput], Dict[str, Any]]:
+        """
+        Extract textual content, page-level sections, and metadata from uploaded files (.pdf, .txt, .md).
+        """
+        lower_name = filename.lower()
+        metadata: Dict[str, Any] = {}
+        fallback_title = default_title or re.sub(r"[\-_]", " ", lower_name.rsplit(".", 1)[0]).title()
+
+        if lower_name.endswith(".pdf") and pypdf is not None:
+            try:
+                reader = pypdf.PdfReader(io.BytesIO(file_bytes))
+                total_pages = len(reader.pages)
+
+                # Extract PDF metadata if present
+                if reader.metadata:
+                    if reader.metadata.title:
+                        metadata["title"] = str(reader.metadata.title).strip()
+                    if reader.metadata.author:
+                        metadata["author"] = str(reader.metadata.author).strip()
+                    if reader.metadata.subject:
+                        metadata["field"] = str(reader.metadata.subject).strip()
+
+                page_texts: List[Tuple[int, str]] = []
+                full_text_parts: List[str] = []
+
+                for page_idx, page in enumerate(reader.pages, start=1):
+                    t = page.extract_text() or ""
+                    clean_t = t.strip()
+                    if clean_t:
+                        page_texts.append((page_idx, clean_t))
+                        full_text_parts.append(clean_t)
+
+                full_text = "\n\n".join(full_text_parts)
+
+                # Chapter pattern across pages
+                pattern = re.compile(
+                    r"(?:^|\n)(?:#+\s*)?(?:Chapter|Section|Part)\s+([0-9IVXLCDM]+)[:\.\-—\s]*(.*?)(?=\n|$)",
+                    re.IGNORECASE,
+                )
+
+                sections: List[SectionDepositInput] = []
+                current_chapter_num = "1"
+                current_chapter_title = f"Archival Section 1: {fallback_title}"
+                current_start_page = 1
+                current_texts: List[str] = []
+
+                for page_num, text in page_texts:
+                    match = pattern.search(text)
+                    if match and current_texts:
+                        sections.append(
+                            SectionDepositInput(
+                                chapter_num=current_chapter_num,
+                                chapter_title=current_chapter_title,
+                                content_text="\n\n".join(current_texts),
+                                start_page=current_start_page,
+                                end_page=max(current_start_page, page_num - 1),
+                            )
+                        )
+                        current_chapter_num = match.group(1).strip()
+                        current_chapter_title = match.group(2).strip() or f"Section {current_chapter_num}"
+                        current_start_page = page_num
+                        current_texts = [text]
+                    else:
+                        if match and not current_texts:
+                            current_chapter_num = match.group(1).strip()
+                            current_chapter_title = match.group(2).strip() or f"Section {current_chapter_num}"
+                            current_start_page = page_num
+                        current_texts.append(text)
+
+                if current_texts:
+                    last_page = page_texts[-1][0] if page_texts else total_pages
+                    sections.append(
+                        SectionDepositInput(
+                            chapter_num=current_chapter_num,
+                            chapter_title=current_chapter_title,
+                            content_text="\n\n".join(current_texts),
+                            start_page=current_start_page,
+                            end_page=max(current_start_page, last_page),
+                        )
+                    )
+
+                if not sections:
+                    sections = [
+                        SectionDepositInput(
+                            chapter_num="1",
+                            chapter_title=f"Core Manuscript: {fallback_title}",
+                            content_text=full_text if full_text else f"Uploaded archival manuscript: {fallback_title}",
+                            start_page=1,
+                            end_page=max(1, total_pages),
+                        )
+                    ]
+
+                return full_text, sections, metadata
+            except Exception as e:
+                print(f"Warning: PDF extraction error: {e}")
+
+        # Plain text / Markdown / Fallback
+        try:
+            text = file_bytes.decode("utf-8")
+        except UnicodeDecodeError:
+            try:
+                text = file_bytes.decode("latin-1")
+            except Exception:
+                text = file_bytes.decode("utf-8", errors="replace")
+
+        sections = cls.parse_manuscript_sections(text, fallback_title)
+        return text, sections, metadata
+
+    @classmethod
+    async def ingest_file(
+        cls,
+        db: AsyncSession,
+        file_bytes: bytes,
+        filename: str,
+        title: Optional[str] = None,
+        author: Optional[str] = None,
+        year: Optional[str] = None,
+        field: Optional[str] = None,
+        collection_id: Optional[str] = None,
+        call_number: Optional[str] = None,
+        doi: Optional[str] = None,
+        journal_or_press: Optional[str] = None,
+    ) -> DocumentDepositResponse:
+        """Process an uploaded academic file and deposit it into the catalog and hybrid retriever."""
+        full_text, sections, meta = cls.extract_file_content(file_bytes, filename, default_title=title)
+
+        resolved_title = title.strip() if title and title.strip() else meta.get("title")
+        if not resolved_title:
+            base_name = filename.rsplit(".", 1)[0]
+            resolved_title = re.sub(r"[\-_]", " ", base_name).strip().title()
+
+        resolved_author = author.strip() if author and author.strip() else meta.get("author", "University Scholar")
+        resolved_year = year.strip() if year and year.strip() else "2026"
+        resolved_field = field.strip() if field and field.strip() else meta.get("field", "University Library Archive")
+        resolved_collection = collection_id.strip() if collection_id and collection_id.strip() else "papers"
+
+        total_pages = sections[-1].end_page if sections else 1
+
+        request = DocumentDepositRequest(
+            title=resolved_title,
+            author=resolved_author,
+            year=resolved_year,
+            field=resolved_field,
+            collection_id=resolved_collection,
+            call_number=call_number.strip() if call_number and call_number.strip() else None,
+            doi=doi.strip() if doi and doi.strip() else None,
+            journal_or_press=journal_or_press.strip() if journal_or_press and journal_or_press.strip() else None,
+            total_pages=total_pages,
+            sections=sections,
+        )
+
+        return await cls.deposit(db, request)

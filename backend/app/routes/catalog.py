@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
 from sqlalchemy.orm import selectinload
@@ -163,4 +163,50 @@ async def deposit_document(
     into the live hybrid vector and lexical retriever for immediate synthesis.
     """
     response = await IngestionService.deposit(db, request)
+    return response
+
+@router.post("/upload", response_model=DocumentDepositResponse, status_code=status.HTTP_201_CREATED)
+async def upload_document_file(
+    file: UploadFile = File(..., description="Document file to upload (.pdf, .txt, .md)"),
+    title: Optional[str] = Form(None),
+    author: Optional[str] = Form(None),
+    year: Optional[str] = Form(None),
+    field: Optional[str] = Form(None),
+    collection_id: Optional[str] = Form("papers"),
+    call_number: Optional[str] = Form(None),
+    doi: Optional[str] = Form(None),
+    journal_or_press: Optional[str] = Form(None),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Upload an academic document file (.pdf, .txt, .md).
+    Extracts text and page boundaries, infers or uses provided metadata,
+    and dynamically indexes chunks into the hybrid RAG engine without server restart.
+    """
+    if not file.filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded file must have a valid filename.",
+        )
+
+    content = await file.read()
+    if not content:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded file is empty.",
+        )
+
+    response = await IngestionService.ingest_file(
+        db=db,
+        file_bytes=content,
+        filename=file.filename,
+        title=title,
+        author=author,
+        year=year,
+        field=field,
+        collection_id=collection_id,
+        call_number=call_number,
+        doi=doi,
+        journal_or_press=journal_or_press,
+    )
     return response

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, PlainTextResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -148,4 +148,91 @@ async def get_saved_inquiry(
         paragraphs=paragraphs,
         citations=citation_items,
         attribution_score=latest_synthesis.attribution_score or 1.0,
+    )
+
+@router.get("/{inquiry_id}/bibtex", response_class=PlainTextResponse)
+async def export_inquiry_bibtex(
+    inquiry_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Generate and export standard BibTeX (.bib) citations for all verified holdings cited in an inquiry.
+    Compatible with Zotero, Mendeley, and LaTeX academic reference managers.
+    """
+    query = (
+        select(Inquiry)
+        .options(
+            selectinload(Inquiry.syntheses)
+            .selectinload(Synthesis.citations)
+            .selectinload(Citation.document)
+        )
+        .where(Inquiry.id == inquiry_id)
+    )
+    result = await db.execute(query)
+    inquiry = result.scalars().first()
+
+    if not inquiry or not inquiry.syntheses:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Inquiry with ID '{inquiry_id}' was not found in the archive.",
+        )
+
+    synthesis = inquiry.syntheses[0]
+    bibtex_entries = []
+
+    for idx, c in enumerate(synthesis.citations, start=1):
+        doc = c.document
+        if not doc:
+            continue
+
+        first_author = doc.author.split(",")[0].split("&")[0].strip().split()[-1].lower() if doc.author else "scholar"
+        first_author = "".join(ch for ch in first_author if ch.isalnum())
+        clean_title = "".join(ch for ch in doc.title.split()[0].lower() if ch.isalnum()) if doc.title else "item"
+        cite_key = f"{first_author}{doc.year}_{clean_title}"
+
+        coll_type = (doc.collection_id or "papers").lower()
+        if "thes" in coll_type:
+            entry_type = "phdthesis"
+        elif "press" in coll_type or "book" in coll_type:
+            entry_type = "book"
+        else:
+            entry_type = "article"
+
+        fields = [
+            f"  title = {{{doc.title}}}",
+            f"  author = {{{doc.author}}}",
+            f"  year = {{{doc.year}}}",
+        ]
+        if doc.journal_or_press:
+            if entry_type == "phdthesis":
+                fields.append(f"  school = {{{doc.journal_or_press}}}")
+            elif entry_type == "book":
+                fields.append(f"  publisher = {{{doc.journal_or_press}}}")
+            else:
+                fields.append(f"  journal = {{{doc.journal_or_press}}}")
+
+        if c.page_ref:
+            clean_page = c.page_ref.replace("Pg.", "").strip()
+            fields.append(f"  pages = {{{clean_page}}}")
+
+        if doc.doi:
+            fields.append(f"  doi = {{{doc.doi}}}")
+
+        if doc.call_number:
+            fields.append(f"  note = {{OnlyBooks Call Number: {doc.call_number}}}")
+
+        entry_str = f"@{entry_type}{{{cite_key},\n" + ",\n".join(fields) + "\n}"
+        bibtex_entries.append(entry_str)
+
+    if not bibtex_entries:
+        return PlainTextResponse("% No catalog citations found for this inquiry.\n")
+
+    bibtex_content = f"% OnlyBooks Academic Library Export - Inquiry: {inquiry_id}\n% Question: {inquiry.question}\n\n" + "\n\n".join(bibtex_entries) + "\n"
+
+    return PlainTextResponse(
+        content=bibtex_content,
+        headers={
+            "Content-Disposition": f'attachment; filename="{inquiry_id}_citations.bib"',
+            "Content-Type": "text/plain; charset=utf-8",
+        },
     )

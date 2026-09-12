@@ -45,6 +45,9 @@ Peer scrutiny functions as an epistemic filter, refining archival conjectures in
 ];
 
 export default function DepositModal({ isOpen, onClose, onSuccess }: Props) {
+  const [activeTab, setActiveTab] = useState<"upload" | "manual">("upload");
+  const [file, setFile] = useState<File | null>(null);
+  const [dragActive, setDragActive] = useState(false);
   const [title, setTitle] = useState("");
   const [author, setAuthor] = useState("");
   const [year, setYear] = useState("2026");
@@ -57,6 +60,24 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: Props) {
   const [result, setResult] = useState<DocumentDepositResponse | null>(null);
 
   if (!isOpen) return null;
+
+  function handleFileSelect(selectedFile: File) {
+    setFile(selectedFile);
+    setError(null);
+    // Auto-populate Title from file name if empty
+    if (!title.trim()) {
+      const base = selectedFile.name.replace(/\.[^/.]+$/, "");
+      setTitle(base.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()));
+    }
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFileSelect(e.dataTransfer.files[0]);
+    }
+  }
 
   function handleFillSample(idx: number = 0) {
     const s = SAMPLE_MANUSCRIPTS[idx];
@@ -72,6 +93,37 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: Props) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    if (activeTab === "upload") {
+      if (!file) {
+        setError("Please select or drop an academic manuscript file (.pdf, .txt, .md).");
+        return;
+      }
+      setLoading(true);
+      setError(null);
+
+      const formData = new FormData();
+      formData.append("file", file);
+      if (title.trim()) formData.append("title", title.trim());
+      if (author.trim()) formData.append("author", author.trim());
+      if (year.trim()) formData.append("year", year.trim());
+      if (field.trim()) formData.append("field", field.trim());
+      if (collectionId) formData.append("collection_id", collectionId);
+      if (journal.trim()) formData.append("journal_or_press", journal.trim());
+
+      try {
+        const res = await catalogApi.uploadFile(formData);
+        setResult(res);
+        onSuccess(res);
+      } catch (err: any) {
+        setError(err?.message || "Failed to upload and parse document.");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    // Manual text mode
     if (!title.trim() || !author.trim() || !field.trim() || !contentText.trim()) {
       setError("Please fill in Title, Author, Academic Field, and Manuscript Content.");
       return;
@@ -102,6 +154,7 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: Props) {
   }
 
   function handleReset() {
+    setFile(null);
     setTitle("");
     setAuthor("");
     setYear("2026");
@@ -263,52 +316,152 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: Props) {
             </div>
           ) : (
             <form onSubmit={handleSubmit}>
-              {/* Quick sample bar */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  marginBottom: "1.25rem",
-                  padding: "0.6rem 1rem",
-                  background: "#EFF6FF",
-                  border: "1px solid #DBEAFE",
-                }}
-              >
-                <span style={{ fontSize: "0.68rem", color: "#1E40AF" }}>
-                  Faculty or Librarian Demo? Populate sample manuscript:
-                </span>
-                <div style={{ display: "flex", gap: "0.5rem" }}>
-                  <button
-                    type="button"
-                    onClick={() => handleFillSample(0)}
-                    style={{
-                      background: "#FFFFFF",
-                      border: "1px solid #BFDBFE",
-                      fontSize: "0.65rem",
-                      color: "#1E40AF",
-                      padding: "2px 8px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Paper (AI/Neuro)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleFillSample(1)}
-                    style={{
-                      background: "#FFFFFF",
-                      border: "1px solid #BFDBFE",
-                      fontSize: "0.65rem",
-                      color: "#1E40AF",
-                      padding: "2px 8px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Thesis (Philosophy)
-                  </button>
-                </div>
+              {/* Mode Tab Switcher */}
+              <div style={{ display: "flex", borderBottom: "1px solid #E5E7EB", marginBottom: "1.25rem" }}>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("upload")}
+                  style={{
+                    padding: "0.5rem 1rem",
+                    fontSize: "0.74rem",
+                    fontWeight: activeTab === "upload" ? 600 : 400,
+                    color: activeTab === "upload" ? "#0F172A" : "#6B7280",
+                    borderBottom: activeTab === "upload" ? "2px solid #0F172A" : "2px solid transparent",
+                    background: "none",
+                    borderTop: "none",
+                    borderLeft: "none",
+                    borderRight: "none",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.4rem",
+                  }}
+                >
+                  <span>📄</span>
+                  <span>Upload Document File (.pdf, .txt, .md)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("manual")}
+                  style={{
+                    padding: "0.5rem 1rem",
+                    fontSize: "0.74rem",
+                    fontWeight: activeTab === "manual" ? 600 : 400,
+                    color: activeTab === "manual" ? "#0F172A" : "#6B7280",
+                    borderBottom: activeTab === "manual" ? "2px solid #0F172A" : "2px solid transparent",
+                    background: "none",
+                    borderTop: "none",
+                    borderLeft: "none",
+                    borderRight: "none",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.4rem",
+                  }}
+                >
+                  <span>✍️</span>
+                  <span>Manual Text / Chapter Input</span>
+                </button>
               </div>
+
+              {/* Drag-and-drop zone if in Upload tab */}
+              {activeTab === "upload" && (
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDragActive(true);
+                  }}
+                  onDragLeave={() => setDragActive(false)}
+                  onDrop={handleDrop}
+                  onClick={() => document.getElementById("file-upload-input")?.click()}
+                  style={{
+                    border: dragActive ? "2px dashed #2563EB" : "2px dashed #CBD5E1",
+                    background: dragActive ? "#EFF6FF" : file ? "#F8FAFC" : "#FFFFFF",
+                    padding: "1.75rem 1.5rem",
+                    textAlign: "center",
+                    cursor: "pointer",
+                    marginBottom: "1.25rem",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  <input
+                    id="file-upload-input"
+                    type="file"
+                    accept=".pdf,.txt,.md"
+                    onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
+                    style={{ display: "none" }}
+                  />
+                  {file ? (
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.35rem" }}>
+                      <span style={{ fontSize: "1.75rem" }}>{file.name.toLowerCase().endsWith(".pdf") ? "📕" : "📄"}</span>
+                      <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#0F172A" }}>{file.name}</span>
+                      <span style={{ fontSize: "0.68rem", color: "#64748B" }}>
+                        {(file.size / 1024).toFixed(1)} KB · Click or drop another file to replace
+                      </span>
+                    </div>
+                  ) : (
+                    <div>
+                      <span style={{ fontSize: "1.75rem", display: "block", marginBottom: "0.4rem" }}>📁</span>
+                      <p style={{ fontSize: "0.825rem", fontWeight: 500, color: "#1E293B", margin: "0 0 0.2rem" }}>
+                        Drop academic document here or <span style={{ color: "#2563EB", textDecoration: "underline" }}>browse files</span>
+                      </p>
+                      <p style={{ fontSize: "0.68rem", color: "#64748B", margin: 0 }}>
+                        Supports Adobe PDF (.pdf), Plain Text (.txt), and Markdown (.md)
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Quick sample bar if in Manual tab */}
+              {activeTab === "manual" && (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginBottom: "1.25rem",
+                    padding: "0.6rem 1rem",
+                    background: "#EFF6FF",
+                    border: "1px solid #DBEAFE",
+                  }}
+                >
+                  <span style={{ fontSize: "0.68rem", color: "#1E40AF" }}>
+                    Faculty or Librarian Demo? Populate sample manuscript:
+                  </span>
+                  <div style={{ display: "flex", gap: "0.5rem" }}>
+                    <button
+                      type="button"
+                      onClick={() => handleFillSample(0)}
+                      style={{
+                        background: "#FFFFFF",
+                        border: "1px solid #BFDBFE",
+                        fontSize: "0.65rem",
+                        color: "#1E40AF",
+                        padding: "2px 8px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Paper (AI/Neuro)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleFillSample(1)}
+                      style={{
+                        background: "#FFFFFF",
+                        border: "1px solid #BFDBFE",
+                        fontSize: "0.65rem",
+                        color: "#1E40AF",
+                        padding: "2px 8px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Thesis (Philosophy)
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {error && (
                 <div
@@ -329,7 +482,7 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: Props) {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
                 <div>
                   <label style={{ display: "block", fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.1em", color: "#4B5563", marginBottom: "0.35rem" }}>
-                    Document Title *
+                    Document Title {activeTab === "manual" ? "*" : "(Optional override)"}
                   </label>
                   <input
                     type="text"
@@ -349,7 +502,7 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: Props) {
 
                 <div>
                   <label style={{ display: "block", fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.1em", color: "#4B5563", marginBottom: "0.35rem" }}>
-                    Lead Scholar / Author *
+                    Lead Scholar / Author {activeTab === "manual" ? "*" : "(Optional override)"}
                   </label>
                   <input
                     type="text"
@@ -372,7 +525,7 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: Props) {
               <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 0.6fr", gap: "1rem", marginBottom: "1rem" }}>
                 <div>
                   <label style={{ display: "block", fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.1em", color: "#4B5563", marginBottom: "0.35rem" }}>
-                    Academic Field *
+                    Academic Field {activeTab === "manual" ? "*" : ""}
                   </label>
                   <input
                     type="text"
@@ -454,34 +607,36 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: Props) {
                 />
               </div>
 
-              {/* Manuscript Text Content */}
-              <div style={{ marginBottom: "1.5rem" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.35rem" }}>
-                  <label style={{ fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.1em", color: "#4B5563" }}>
-                    Manuscript Text (with Chapter / Section Headings) *
-                  </label>
-                  <span style={{ fontSize: "0.62rem", color: "#9CA3AF" }}>
-                    Prefix chapters with "Chapter 1: ...", "Chapter II: ...", or "# "
-                  </span>
+              {/* Manuscript Text Content if in Manual tab */}
+              {activeTab === "manual" && (
+                <div style={{ marginBottom: "1.5rem" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.35rem" }}>
+                    <label style={{ fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.1em", color: "#4B5563" }}>
+                      Manuscript Text (with Chapter / Section Headings) *
+                    </label>
+                    <span style={{ fontSize: "0.62rem", color: "#9CA3AF" }}>
+                      Prefix chapters with "Chapter 1: ...", "Chapter II: ...", or "# "
+                    </span>
+                  </div>
+                  <textarea
+                    rows={8}
+                    value={contentText}
+                    onChange={(e) => setContentText(e.target.value)}
+                    placeholder={"Chapter 1: Introduction\nState the central scholarly inquiry and theoretical foundation...\n\nChapter 2: Empirical Methodologies\nDetail the experimental trials and archival analysis..."}
+                    style={{
+                      width: "100%",
+                      padding: "0.6rem",
+                      border: "1px solid #D1D5DB",
+                      fontSize: "0.8rem",
+                      fontFamily: "var(--font-serif)",
+                      lineHeight: 1.6,
+                      outline: "none",
+                      background: "#FFFFFF",
+                      resize: "vertical",
+                    }}
+                  />
                 </div>
-                <textarea
-                  rows={8}
-                  value={contentText}
-                  onChange={(e) => setContentText(e.target.value)}
-                  placeholder={"Chapter 1: Introduction\nState the central scholarly inquiry and theoretical foundation...\n\nChapter 2: Empirical Methodologies\nDetail the experimental trials and archival analysis..."}
-                  style={{
-                    width: "100%",
-                    padding: "0.6rem",
-                    border: "1px solid #D1D5DB",
-                    fontSize: "0.8rem",
-                    fontFamily: "var(--font-serif)",
-                    lineHeight: 1.6,
-                    outline: "none",
-                    background: "#FFFFFF",
-                    resize: "vertical",
-                  }}
-                />
-              </div>
+              )}
 
               {/* Action Buttons */}
               <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", borderTop: "1px solid #E5E7EB", paddingTop: "1.25rem" }}>
@@ -515,7 +670,9 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: Props) {
                     opacity: loading ? 0.7 : 1,
                   }}
                 >
-                  {loading ? "Parsing & Indexing…" : "Deposit to Library"}
+                  {loading
+                    ? (activeTab === "upload" ? "Extracting & Indexing…" : "Parsing & Indexing…")
+                    : (activeTab === "upload" ? "Upload & Ingest Manuscript" : "Deposit to Library")}
                 </button>
               </div>
             </form>
