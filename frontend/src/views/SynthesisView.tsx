@@ -77,6 +77,7 @@ export default function SynthesisView({
   onQuery,
 }: Props) {
   const [loading, setLoading] = useState(true);
+  const [isStreaming, setIsStreaming] = useState(false);
   const [activeFootnote, setActiveFootnote] = useState<number | null>(null);
   const [openCitation, setOpenCitation] = useState<Citation | null>(null);
   const [followUp, setFollowUp] = useState("");
@@ -89,61 +90,203 @@ export default function SynthesisView({
     documents: Record<number, DocumentRecord>;
   } | null>(null);
 
-  // Fetch live RAG synthesis with fallback to library catalog knowledge
+  // Fetch or stream live RAG synthesis with fallback to library catalog knowledge
   useEffect(() => {
     let isCancelled = false;
+    let abortStream: (() => void) | null = null;
     setLoading(true);
     setOpenCitation(null);
     setActiveFootnote(null);
 
     const localFallback = getSynthesisForQuery(activeQuery.question);
 
-    inquiryApi
-      .synthesize({
-        question: activeQuery.question,
-        collection_filter: activeQuery.collectionFilter || "all",
-      })
-      .then((res) => {
-        if (isCancelled) return;
-        const mappedCitations: Citation[] = res.citations.map((c) => ({
-          id: c.id,
-          title: c.title,
-          author: c.author,
-          year: c.year,
-          journal: c.journal || "Library Archive",
-          page: c.page,
-          callNumber: c.call_number,
-          collectionType: c.collection_type,
-          documentId: c.document_id,
-          extractedQuote: c.extracted_quote,
-          marker: c.marker,
-        }));
+    // If active query is an existing saved inquiry from DB history
+    if (activeQuery.id.startsWith("inq-")) {
+      inquiryApi
+        .getSavedInquiry(activeQuery.id)
+        .then((res) => {
+          if (isCancelled) return;
+          const mappedCitations: Citation[] = res.citations.map((c) => ({
+            id: c.id,
+            title: c.title,
+            author: c.author,
+            year: c.year,
+            journal: c.journal || "Library Archive",
+            page: c.page,
+            callNumber: c.call_number,
+            collectionType: c.collection_type,
+            documentId: c.document_id,
+            extractedQuote: c.extracted_quote,
+            marker: c.marker,
+          }));
 
-        setSynthesis({
-          summaryByline: res.summary_byline,
-          paragraphs: res.paragraphs,
-          citations: mappedCitations,
-          attributionScore: res.attribution_score,
-          inquiryId: res.inquiry_id,
-          documents: localFallback.documents,
+          setSynthesis({
+            summaryByline: res.summary_byline,
+            paragraphs: res.paragraphs,
+            citations: mappedCitations,
+            attributionScore: res.attribution_score,
+            inquiryId: res.inquiry_id,
+            documents: localFallback.documents,
+          });
+          setLoading(false);
+          setIsStreaming(false);
+        })
+        .catch((err) => {
+          console.warn("Could not load saved inquiry, generating fresh:", err);
+          executeStream();
         });
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.warn("Live synthesis API offline, using catalog knowledge fallback:", err);
-        if (isCancelled) return;
-        setSynthesis({
-          summaryByline: localFallback.summaryByline,
-          paragraphs: localFallback.paragraphs,
-          citations: localFallback.citations,
-          attributionScore: 1.0,
-          documents: localFallback.documents,
-        });
-        setLoading(false);
-      });
+    } else {
+      executeStream();
+    }
+
+    function executeStream() {
+      setIsStreaming(true);
+      abortStream = inquiryApi.synthesizeStream(
+        {
+          question: activeQuery.question,
+          collection_filter: activeQuery.collectionFilter || "all",
+        },
+        {
+          onMetadata: (meta) => {
+            if (isCancelled) return;
+            setSynthesis((prev) => ({
+              summaryByline: meta.summary_byline,
+              paragraphs: prev?.paragraphs && prev.paragraphs.length > 0 ? prev.paragraphs : [{ text: "" }],
+              citations: prev?.citations || [],
+              attributionScore: meta.attribution_score,
+              inquiryId: meta.inquiry_id,
+              documents: localFallback.documents,
+            }));
+          },
+          onCitations: (cits) => {
+            if (isCancelled) return;
+            const mapped: Citation[] = cits.map((c) => ({
+              id: c.id,
+              title: c.title,
+              author: c.author,
+              year: c.year,
+              journal: c.journal || "Library Archive",
+              page: c.page,
+              callNumber: c.call_number,
+              collectionType: c.collection_type,
+              documentId: c.document_id,
+              extractedQuote: c.extracted_quote,
+              marker: c.marker,
+            }));
+            setSynthesis((prev) => ({
+              summaryByline: prev?.summaryByline || "University Library Synthesis",
+              paragraphs: prev?.paragraphs || [{ text: "" }],
+              citations: mapped,
+              attributionScore: prev?.attributionScore || 1.0,
+              inquiryId: prev?.inquiryId,
+              documents: localFallback.documents,
+            }));
+          },
+          onToken: (token, paragraphIdx) => {
+            if (isCancelled) return;
+            setLoading(false);
+            setSynthesis((prev) => {
+              const currentParas = prev ? [...prev.paragraphs] : [];
+              while (currentParas.length <= paragraphIdx) {
+                currentParas.push({ text: "" });
+              }
+              currentParas[paragraphIdx] = {
+                text: currentParas[paragraphIdx].text + token,
+              };
+              return {
+                summaryByline: prev?.summaryByline || "University Library Synthesis",
+                paragraphs: currentParas,
+                citations: prev?.citations || [],
+                attributionScore: prev?.attributionScore || 1.0,
+                inquiryId: prev?.inquiryId,
+                documents: prev?.documents || localFallback.documents,
+              };
+            });
+          },
+          onParagraphBreak: (paragraphIdx) => {
+            if (isCancelled) return;
+            setSynthesis((prev) => {
+              if (!prev) return prev;
+              const currentParas = [...prev.paragraphs];
+              while (currentParas.length <= paragraphIdx + 1) {
+                currentParas.push({ text: "" });
+              }
+              return {
+                ...prev,
+                paragraphs: currentParas,
+              };
+            });
+          },
+          onDone: (done) => {
+            if (isCancelled) return;
+            setIsStreaming(false);
+            setLoading(false);
+            setSynthesis((prev) => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                summaryByline: done.summary_byline,
+                attributionScore: done.attribution_score,
+                inquiryId: done.inquiry_id,
+              };
+            });
+          },
+          onError: (err) => {
+            console.warn("Stream error, falling back to batch synthesis:", err);
+            if (isCancelled) return;
+            inquiryApi
+              .synthesize({
+                question: activeQuery.question,
+                collection_filter: activeQuery.collectionFilter || "all",
+              })
+              .then((res) => {
+                if (isCancelled) return;
+                const mappedCitations: Citation[] = res.citations.map((c) => ({
+                  id: c.id,
+                  title: c.title,
+                  author: c.author,
+                  year: c.year,
+                  journal: c.journal || "Library Archive",
+                  page: c.page,
+                  callNumber: c.call_number,
+                  collectionType: c.collection_type,
+                  documentId: c.document_id,
+                  extractedQuote: c.extracted_quote,
+                  marker: c.marker,
+                }));
+
+                setSynthesis({
+                  summaryByline: res.summary_byline,
+                  paragraphs: res.paragraphs,
+                  citations: mappedCitations,
+                  attributionScore: res.attribution_score,
+                  inquiryId: res.inquiry_id,
+                  documents: localFallback.documents,
+                });
+                setLoading(false);
+                setIsStreaming(false);
+              })
+              .catch((err2) => {
+                console.warn("Batch synthesis offline, using catalog knowledge fallback:", err2);
+                if (isCancelled) return;
+                setSynthesis({
+                  summaryByline: localFallback.summaryByline,
+                  paragraphs: localFallback.paragraphs,
+                  citations: localFallback.citations,
+                  attributionScore: 1.0,
+                  documents: localFallback.documents,
+                });
+                setLoading(false);
+                setIsStreaming(false);
+              });
+          },
+        }
+      );
+    }
 
     return () => {
       isCancelled = true;
+      if (abortStream) abortStream();
     };
   }, [activeQuery.id, activeQuery.question, activeQuery.collectionFilter]);
 
@@ -404,6 +547,34 @@ export default function SynthesisView({
                   >
                     Attribution: {Math.round(synthesis.attributionScore * 100)}% Grounded
                   </span>
+                  {isStreaming && (
+                    <span
+                      style={{
+                        fontSize: "0.6rem",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.1em",
+                        color: "#1D4ED8",
+                        background: "#EFF6FF",
+                        border: "1px solid #BFDBFE",
+                        padding: "0.1rem 0.45rem",
+                        fontWeight: 600,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "0.4rem",
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: "50%",
+                          backgroundColor: "#2563EB",
+                          display: "inline-block",
+                        }}
+                      />
+                      Streaming SSE Tokens Live…
+                    </span>
+                  )}
                 </div>
 
                 {/* Article body */}
@@ -424,6 +595,19 @@ export default function SynthesisView({
                         onHover={setActiveFootnote}
                         onOpen={openDoc}
                       />
+                      {isStreaming && i === synthesis.paragraphs.length - 1 && (
+                        <span
+                          style={{
+                            display: "inline-block",
+                            marginLeft: "3px",
+                            color: "#2563EB",
+                            fontWeight: 700,
+                            opacity: 0.85,
+                          }}
+                        >
+                          ▍
+                        </span>
+                      )}
                     </p>
                   ))}
                 </div>
