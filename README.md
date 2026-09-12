@@ -168,6 +168,15 @@ Output:
 - The `IngestionService` parses chapter headings (e.g., `Chapter 1: ...`), calculates page boundaries, and generates an official call number.
 - Newly deposited documents are immediately retrievable in subsequent searches and cited in live RAG syntheses without restarting the application!
 
+### 5. Multi-Format PDF & Document File Upload Pipeline
+- Drag and drop real academic files (`.pdf`, `.txt`, `.md`) directly into the deposit interface.
+- Powered by `pypdf` for pure-Python, zero-dependency page extraction and chapter segmentation.
+- Extracts document metadata, auto-infers titles from file names, and dynamically feeds extracted chunks into `HybridRetriever`.
+
+### 6. BibTeX (.bib) Reference Export & Citation Copying
+- Click **"Export BibTeX"** in the synthesis bibliography sidebar to download standardized `.bib` files compatible with **Zotero**, **Mendeley**, and **LaTeX**.
+- Click **"Copy Citations"** to copy formatted scholarly references directly into your clipboard.
+
 ---
 
 ## 🔒 Default Authentication Credentials

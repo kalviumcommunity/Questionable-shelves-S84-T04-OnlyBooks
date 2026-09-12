@@ -764,6 +764,7 @@ export default function SynthesisView({
               activeFootnote={activeFootnote}
               onHover={setActiveFootnote}
               onOpen={openDoc}
+              inquiryId={synthesis?.inquiryId}
             />
           )}
         </aside>
@@ -794,15 +795,68 @@ function BibliographyPanel({
   activeFootnote,
   onHover,
   onOpen,
+  inquiryId,
 }: {
   citations: Citation[];
   activeFootnote: number | null;
   onHover: (n: number | null) => void;
   onOpen: (n: number) => void;
+  inquiryId?: string;
 }) {
+  const [copied, setCopied] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  async function handleExportBibtex() {
+    if (!citations.length) return;
+    setExporting(true);
+    try {
+      let bibText = "";
+      if (inquiryId && inquiryId.startsWith("inq-")) {
+        try {
+          bibText = await inquiryApi.getBibtex(inquiryId);
+        } catch {
+          // fallback to client-side BibTeX generator
+        }
+      }
+      if (!bibText) {
+        bibText = citations
+          .map((c) => {
+            const firstAuthor = c.author.split(",")[0].split("&")[0].trim().split(" ").pop()?.toLowerCase() || "scholar";
+            const cleanAuthor = firstAuthor.replace(/[^a-z0-9]/gi, "");
+            const citeKey = `${cleanAuthor}${c.year}_${c.id}`;
+            const isThesis = c.collectionType.toLowerCase().includes("thesis");
+            const entryType = isThesis ? "phdthesis" : "article";
+            return `@${entryType}{${citeKey},\n  title = {${c.title}},\n  author = {${c.author}},\n  year = {${c.year}},\n  journal = {${c.journal}},\n  pages = {${c.page.replace("Pg.", "").trim()}},\n  note = {OnlyBooks Call Number: ${c.callNumber}}\n}`;
+          })
+          .join("\n\n");
+      }
+      const blob = new Blob([bibText], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${inquiryId || "onlybooks"}_citations.bib`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  function handleCopyCitations() {
+    if (!citations.length) return;
+    const formatted = citations
+      .map((c) => `${c.author} (${c.year}). ${c.title}. ${c.journal}, ${c.page}. [${c.callNumber}]`)
+      .join("\n\n");
+    navigator.clipboard.writeText(formatted);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
   return (
     <div style={{ padding: "1.5rem 1.25rem" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.875rem" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.5rem" }}>
         <p
           style={{
             fontSize: "0.58rem",
@@ -815,6 +869,57 @@ function BibliographyPanel({
           Library Bibliography
         </p>
         <span style={{ fontSize: "0.58rem", color: "#9CA3AF" }}>Click to read page</span>
+      </div>
+
+      {/* BibTeX Export and Copy Actions */}
+      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
+        <button
+          onClick={handleExportBibtex}
+          disabled={exporting || citations.length === 0}
+          style={{
+            flex: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "0.3rem",
+            padding: "0.35rem 0.5rem",
+            fontSize: "0.62rem",
+            background: "#FFFFFF",
+            border: "1px solid #D1D5DB",
+            color: "#1F2937",
+            cursor: citations.length === 0 ? "not-allowed" : "pointer",
+            fontWeight: 500,
+            opacity: citations.length === 0 ? 0.6 : 1,
+          }}
+          title="Download citations in BibTeX format for reference managers"
+        >
+          <span>📥</span>
+          <span>{exporting ? "Exporting…" : "Export BibTeX"}</span>
+        </button>
+
+        <button
+          onClick={handleCopyCitations}
+          disabled={citations.length === 0}
+          style={{
+            flex: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "0.3rem",
+            padding: "0.35rem 0.5rem",
+            fontSize: "0.62rem",
+            background: copied ? "#ECFDF5" : "#FFFFFF",
+            border: `1px solid ${copied ? "#A7F3D0" : "#D1D5DB"}`,
+            color: copied ? "#059669" : "#1F2937",
+            cursor: citations.length === 0 ? "not-allowed" : "pointer",
+            fontWeight: 500,
+            opacity: citations.length === 0 ? 0.6 : 1,
+          }}
+          title="Copy formatted citation text to clipboard"
+        >
+          <span>{copied ? "✓" : "📋"}</span>
+          <span>{copied ? "Copied!" : "Copy Citations"}</span>
+        </button>
       </div>
 
       {citations.map((c) => {
