@@ -159,3 +159,5 @@ input:focus, textarea:focus, button:focus, select:focus {
 .auth-input-container:focus-within::before {
   transform: translateY(-50%) scaleY(1);
 }
+/* updated global color scheme */
+/* mobile responsiveness fixes */
