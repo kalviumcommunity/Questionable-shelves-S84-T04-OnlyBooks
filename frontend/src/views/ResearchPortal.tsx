@@ -11,9 +11,10 @@ interface Props {
   onQuery: (question: string, collectionFilter?: string) => void;
   recentQueries: Query[];
   onSignOut: () => void;
+  onOpenGuide?: () => void;
 }
 
-export default function ResearchPortal({ user, onQuery, recentQueries, onSignOut }: Props) {
+export default function ResearchPortal({ user, onQuery, recentQueries, onSignOut, onOpenGuide }: Props) {
   const [input, setInput] = useState("");
   const [focused, setFocused] = useState(false);
   const [filter, setFilter] = useState<FilterType>("all");
@@ -91,17 +92,24 @@ export default function ResearchPortal({ user, onQuery, recentQueries, onSignOut
         className="flex items-center justify-between px-8 py-4 flex-shrink-0"
         style={{ borderBottom: "1px solid #E5E7EB" }}
       >
-        <div
+        <button
+          onClick={onOpenGuide}
+          title="Reader's Guide"
           style={{
+            background: "none",
+            border: "none",
+            padding: 0,
             fontFamily: "var(--font-serif)",
             fontWeight: 600,
             fontSize: "1.05rem",
             color: "#0F172A",
             letterSpacing: "-0.01em",
+            cursor: "pointer",
+            userSelect: "none",
           }}
         >
           OnlyBooks · University Library Archive
-        </div>
+        </button>
         <nav className="flex items-center gap-6">
           <NavLink onClick={() => setFilter("papers")}>Research Papers</NavLink>
           <NavLink onClick={() => setFilter("theses")}>Theses & Dissertations</NavLink>
@@ -109,24 +117,34 @@ export default function ResearchPortal({ user, onQuery, recentQueries, onSignOut
 
           <button
             onClick={() => setIsDepositOpen(true)}
+            className="academic-btn-primary"
             style={{
-              background: "#1C1C1C",
-              color: "#FAFAFA",
-              border: "1px solid #1C1C1C",
               padding: "0.25rem 0.65rem",
               fontSize: "0.68rem",
               letterSpacing: "0.03em",
-              fontWeight: 500,
-              cursor: "pointer",
-              transition: "background 0.12s",
             }}
-            onMouseOver={(e) => (e.currentTarget.style.background = "#0F172A")}
-            onMouseOut={(e) => (e.currentTarget.style.background = "#1C1C1C")}
             title="Deposit scholarly paper, thesis or syllabus to university archives"
           >
             + Deposit Manuscript
           </button>
 
+          <button
+            onClick={onOpenGuide}
+            style={{
+              background: "none",
+              border: "none",
+              fontSize: "0.75rem",
+              color: "#9CA3AF",
+              cursor: "pointer",
+              padding: 0,
+              transition: "color 0.12s",
+            }}
+            onMouseOver={(e) => (e.currentTarget.style.color = "#1C1C1C")}
+            onMouseOut={(e) => (e.currentTarget.style.color = "#9CA3AF")}
+          >
+            Get Started
+          </button>
+          
           <button
             onClick={onSignOut}
             style={{
@@ -219,12 +237,14 @@ export default function ResearchPortal({ user, onQuery, recentQueries, onSignOut
               {holdingsStats.map(([val, label]) => (
                 <div
                   key={label}
+                  className="academic-list-item"
                   style={{
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "baseline",
-                    padding: "0.5rem 0",
+                    padding: "0.5rem 0.5rem",
                     borderBottom: "1px solid #E5E7EB",
+                    cursor: "default"
                   }}
                 >
                   <span style={{ fontSize: "0.875rem", fontWeight: 500, color: "#1C1C1C" }}>{val}</span>
@@ -279,7 +299,7 @@ export default function ResearchPortal({ user, onQuery, recentQueries, onSignOut
             </div>
 
             {/* The key input — bottom border only, 2px, no rounding */}
-            <div style={{ position: "relative", marginBottom: "1.25rem" }}>
+            <div className="academic-input-container" style={{ position: "relative", marginBottom: "1.25rem" }}>
               <input
                 type="text"
                 value={input}
@@ -292,7 +312,7 @@ export default function ResearchPortal({ user, onQuery, recentQueries, onSignOut
                   width: "100%",
                   background: "transparent",
                   border: "none",
-                  borderBottom: `2px solid ${focused || input ? "#1C1C1C" : "#6B7280"}`,
+                  borderBottom: `2px solid ${input ? "#1C1C1C" : "#D1D5DB"}`,
                   outline: "none",
                   fontSize: "1.25rem",
                   fontFamily: "var(--font-serif)",
@@ -309,20 +329,11 @@ export default function ResearchPortal({ user, onQuery, recentQueries, onSignOut
               </span>
               <button
                 onClick={submit}
+                className="academic-btn-primary"
                 style={{
-                  background: "#1C1C1C",
-                  color: "#FAFAFA",
-                  border: "none",
                   padding: "0.5rem 1.25rem",
                   fontSize: "0.75rem",
-                  fontFamily: "var(--font-sans)",
-                  fontWeight: 500,
-                  letterSpacing: "0.04em",
-                  cursor: "pointer",
-                  transition: "background 0.15s",
                 }}
-                onMouseOver={(e) => (e.currentTarget.style.background = "#0F172A")}
-                onMouseOut={(e) => (e.currentTarget.style.background = "#1C1C1C")}
               >
                 Submit Inquiry
               </button>
@@ -344,12 +355,13 @@ export default function ResearchPortal({ user, onQuery, recentQueries, onSignOut
               {recentQueries.slice(0, 4).map((q) => (
                 <div
                   key={q.id}
+                  className="academic-list-item"
                   onClick={() => onQuery(q.question, q.collectionFilter || "all")}
                   style={{
                     display: "flex",
                     justifyContent: "space-between",
-                    alignItems: "baseline",
-                    padding: "0.75rem 0",
+                    alignItems: "center",
+                    padding: "0.75rem 0.5rem",
                     borderBottom: "1px solid #E5E7EB",
                     cursor: "pointer",
                   }}

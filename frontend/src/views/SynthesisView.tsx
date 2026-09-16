@@ -17,6 +17,7 @@ interface Props {
   onSelectQuery: (q: Query) => void;
   onNewSearch: () => void;
   onQuery: (question: string, collectionFilter?: string) => void;
+  onOpenGuide?: () => void;
 }
 
 // Unicode superscript map for footnote markers 1–9
@@ -75,6 +76,7 @@ export default function SynthesisView({
   onSelectQuery,
   onNewSearch,
   onQuery,
+  onOpenGuide,
 }: Props) {
   const [loading, setLoading] = useState(true);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -331,30 +333,40 @@ export default function SynthesisView({
           flexShrink: 0,
         }}
       >
-        <button
-          onClick={onNewSearch}
-          style={{
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            padding: 0,
-          }}
-        >
-          <span style={{ color: "#9CA3AF", fontSize: "0.875rem" }}>←</span>
-          <span
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <button
+            onClick={onNewSearch}
             style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              padding: "0.25rem",
+            }}
+            title="Back to Search"
+          >
+            <span style={{ color: "#9CA3AF", fontSize: "0.875rem" }}>←</span>
+          </button>
+          <button
+            onClick={onOpenGuide}
+            title="Reader's Guide"
+            style={{
+              background: "none",
+              border: "none",
+              padding: 0,
               fontFamily: "var(--font-serif)",
               fontWeight: 600,
-              fontSize: "0.95rem",
-              color: "#0F172A",
+              fontSize: "1.05rem",
+              color: "#1C1C1C",
+              letterSpacing: "-0.01em",
+              cursor: "pointer",
+              userSelect: "none",
             }}
           >
             OnlyBooks · University Library Archive
-          </span>
-        </button>
+          </button>
+        </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
           <span style={{ fontSize: "0.7rem", color: "#9CA3AF" }}>{activeQuery.timestamp}</span>
@@ -720,21 +732,12 @@ export default function SynthesisView({
             />
             <button
               onClick={submitFollowUp}
+              className="academic-btn-primary"
               style={{
-                background: "#1C1C1C",
-                color: "#FAFAFA",
-                border: "none",
                 padding: "0.375rem 1rem",
                 fontSize: "0.7rem",
-                fontFamily: "var(--font-sans)",
-                fontWeight: 500,
-                letterSpacing: "0.04em",
-                cursor: "pointer",
                 flexShrink: 0,
-                transition: "background 0.12s",
               }}
-              onMouseOver={(e) => (e.currentTarget.style.background = "#0F172A")}
-              onMouseOut={(e) => (e.currentTarget.style.background = "#1C1C1C")}
             >
               Submit
             </button>

@@ -4,6 +4,7 @@ import { authApi } from "../services/api";
 
 interface Props {
   onAuth: (user: User) => void;
+  onOpenGuide?: () => void;
 }
 
 type Mode = "login" | "signup";
@@ -38,7 +39,7 @@ function Field({
 }) {
   const [focused, setFocused] = useState(false);
   return (
-    <div style={{ marginBottom: "1.75rem" }}>
+    <div style={{ marginBottom: "1.75rem" }} className="auth-input-container">
       <label
         style={{
           display: "block",
@@ -69,7 +70,7 @@ function Field({
   );
 }
 
-export default function AuthPage({ onAuth }: Props) {
+export default function AuthPage({ onAuth, onOpenGuide }: Props) {
   const [mode, setMode] = useState<Mode>("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -171,17 +172,24 @@ export default function AuthPage({ onAuth }: Props) {
           justifyContent: "space-between",
         }}
       >
-        <div
+        <button
+          onClick={onOpenGuide}
+          title="Reader's Guide"
           style={{
+            background: "none",
+            border: "none",
+            padding: 0,
             fontFamily: "var(--font-serif)",
             fontWeight: 600,
             fontSize: "1.05rem",
             color: "#0F172A",
             letterSpacing: "-0.01em",
+            cursor: "pointer",
+            userSelect: "none",
           }}
         >
           OnlyBooks · University Library Archive
-        </div>
+        </button>
         <p style={{ fontSize: "0.7rem", color: "#9CA3AF" }}>
           Institutional Access · 148,000+ Library Holdings Indexed
         </p>
@@ -418,27 +426,13 @@ export default function AuthPage({ onAuth }: Props) {
               <button
                 type="submit"
                 disabled={loading}
+                className="academic-btn-primary"
                 style={{
                   width: "100%",
-                  background: loading ? "#4B5563" : "#1C1C1C",
-                  color: "#FAFAFA",
-                  border: "none",
                   padding: "0.75rem 1.5rem",
                   fontSize: "0.75rem",
-                  fontFamily: "var(--font-sans)",
-                  fontWeight: 500,
-                  letterSpacing: "0.06em",
                   textTransform: "uppercase",
-                  cursor: loading ? "wait" : "pointer",
-                  transition: "background 0.15s",
                   marginBottom: "1.5rem",
-                  opacity: loading ? 0.8 : 1,
-                }}
-                onMouseOver={(e) => {
-                  if (!loading) e.currentTarget.style.background = "#0F172A";
-                }}
-                onMouseOut={(e) => {
-                  if (!loading) e.currentTarget.style.background = "#1C1C1C";
                 }}
               >
                 {loading

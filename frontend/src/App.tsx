@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import AuthPage from "./views/AuthPage";
 import ResearchPortal from "./views/ResearchPortal";
 import SynthesisView from "./views/SynthesisView";
+import GetStarted from "./views/GetStarted";
 import { authApi, inquiryApi, getStoredToken } from "./services/api";
 
-export type AppView = "auth" | "portal" | "synthesis";
+export type AppView = "auth" | "portal" | "synthesis" | "guide";
 
 export interface Query {
   id: string;
@@ -31,7 +32,7 @@ const SEED_HISTORY: Query[] = [
 ];
 
 export default function App() {
-  const [view, setView] = useState<AppView>("auth");
+  const [view, setView] = useState<AppView>("guide");
   const [user, setUser] = useState<User | null>(null);
   const [activeQuery, setActiveQuery] = useState<Query | null>(null);
   const [queryHistory, setQueryHistory] = useState<Query[]>(SEED_HISTORY);
@@ -68,13 +69,11 @@ export default function App() {
     authApi.getMe()
       .then((profile) => {
         setUser(profile);
-        setView("portal");
         loadHistory();
       })
       .catch(() => {
         authApi.logout();
         setUser(null);
-        setView("auth");
       })
       .finally(() => {
         setLoadingSession(false);
@@ -142,7 +141,7 @@ export default function App() {
   }
 
   if (view === "auth") {
-    return <AuthPage onAuth={handleAuth} />;
+    return <AuthPage onAuth={handleAuth} onOpenGuide={() => setView("guide")} />;
   }
 
   if (view === "portal") {
@@ -152,8 +151,13 @@ export default function App() {
         onQuery={handleQuery}
         recentQueries={queryHistory.slice(0, 4)}
         onSignOut={handleSignOut}
+        onOpenGuide={() => setView("guide")}
       />
     );
+  }
+
+  if (view === "guide") {
+    return <GetStarted user={user} onBack={() => setView(user ? "portal" : "auth")} />;
   }
 
   return (
@@ -164,6 +168,7 @@ export default function App() {
       onSelectQuery={handleSelectQuery}
       onNewSearch={() => setView("portal")}
       onQuery={handleQuery}
+      onOpenGuide={() => setView("guide")}
     />
   );
 }

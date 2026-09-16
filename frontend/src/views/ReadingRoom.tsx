@@ -637,7 +637,7 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
                         borderRadius: "2px",
                       }}
                     >
-                      {rawPage?.text_content || section.blocks.map((b) => b.text).filter(Boolean).join("\n\n")}
+                      {rawPage?.text_content || section.blocks.map((b) => "text" in b ? b.text : "").filter(Boolean).join("\n\n")}
                     </pre>
                   )}
                 </div>
