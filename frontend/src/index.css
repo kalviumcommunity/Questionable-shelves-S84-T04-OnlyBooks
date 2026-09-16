@@ -72,5 +72,92 @@ body {
   flex-direction: column;
 }
 
+/* --- Added for Premium Aesthetic --- */
+
+/* Custom Form Input Focus State - Bottom Border Expansion */
+.academic-input-container {
+  position: relative;
+}
+.academic-input-container::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 0;
+  height: 2px;
+  background-color: #1C1C1C;
+  transition: width 0.3s ease, left 0.3s ease;
+}
+.academic-input-container:focus-within::after {
+  width: 100%;
+  left: 0;
+}
+
+/* Elegant list hover states */
+.academic-list-item {
+  transition: background-color 0.2s ease, transform 0.2s ease, color 0.2s ease;
+}
+.academic-list-item:hover {
+  background-color: #F3F4F6;
+  transform: translateX(2px);
+  color: #0F172A;
+}
+
+/* Typography Scales for Dense Text */
+.dense-text {
+  line-height: 1.75;
+  letter-spacing: 0.01em;
+  color: #1C1C1C;
+}
+
+/* Global Focus Ring Removal */
+input, textarea, button, select {
+  outline: none !important;
+}
+input:focus, textarea:focus, button:focus, select:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Unified Primary Button */
+.academic-btn-primary {
+  background-color: #1C1C1C !important;
+  color: #FAFAFA !important;
+  border: none !important;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease, background-color 0.15s !important;
+}
+.academic-btn-primary:hover {
+  background-color: #0F172A !important;
+  transform: scale(0.98);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+.academic-btn-primary:disabled {
+  opacity: 0.8;
+  cursor: wait;
+}
+
+/* Left-aligned accent line for Auth fields */
+.auth-input-container {
+  position: relative;
+}
+.auth-input-container::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  transform: translateY(-50%) scaleY(0);
+  width: 3px;
+  height: 60%;
+  background-color: #1C1C1C;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: center;
+}
+.auth-input-container:focus-within::before {
+  transform: translateY(-50%) scaleY(1);
+}
 /* updated global color scheme */
 /* mobile responsiveness fixes */
