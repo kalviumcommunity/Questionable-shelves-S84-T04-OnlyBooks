@@ -31,6 +31,41 @@ const SEED_HISTORY: Query[] = [
   { id: "seed-4", question: "Archive fever: Derrida and the politics of memory", timestamp: "21 Aug", collectionFilter: "reserves" },
 ];
 
+// Helper to toggle theme globally
+export function ThemeToggle() {
+  const [isDark, setIsDark] = useState(() => document.body.classList.contains("dark"));
+  
+  const toggle = () => {
+    const next = !isDark;
+    setIsDark(next);
+    if (next) {
+      document.body.classList.add("dark");
+    } else {
+      document.body.classList.remove("dark");
+    }
+  };
+
+  return (
+    <button
+      onClick={toggle}
+      className="btn-ghost"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: "32px",
+        height: "32px",
+        padding: 0,
+        borderRadius: "50%",
+        fontSize: "1rem"
+      }}
+      title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+    >
+      {isDark ? "☀️" : "🌙"}
+    </button>
+  );
+}
+
 export default function App() {
   const [view, setView] = useState<AppView>("guide");
   const [user, setUser] = useState<User | null>(null);
@@ -118,57 +153,54 @@ export default function App() {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          background: "#FAFAFA",
-          fontFamily: "var(--font-sans)",
+          fontFamily: "var(--font-display)",
         }}
       >
-        <p
-          style={{
-            fontFamily: "var(--font-serif)",
-            fontSize: "1.2rem",
-            fontStyle: "italic",
-            color: "#1C1C1C",
-            marginBottom: "0.5rem",
-          }}
-        >
-          OnlyBooks · University Library Archive
-        </p>
-        <p style={{ fontSize: "0.72rem", color: "#9CA3AF", letterSpacing: "0.08em" }}>
-          VERIFYING INSTITUTIONAL CREDENTIALS…
+        <div className="loader-minimal" style={{ marginBottom: "1.5rem" }} />
+        <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", letterSpacing: "0.05em", textTransform: "uppercase" }}>
+          Connecting to Archive…
         </p>
       </div>
     );
   }
 
-  if (view === "auth") {
-    return <AuthPage onAuth={handleAuth} onOpenGuide={() => setView("guide")} />;
-  }
-
-  if (view === "portal") {
-    return (
-      <ResearchPortal
-        user={user!}
-        onQuery={handleQuery}
-        recentQueries={queryHistory.slice(0, 4)}
-        onSignOut={handleSignOut}
-        onOpenGuide={() => setView("guide")}
-      />
-    );
-  }
-
-  if (view === "guide") {
-    return <GetStarted user={user} onBack={() => setView(user ? "portal" : "auth")} />;
-  }
-
   return (
-    <SynthesisView
-      user={user!}
-      activeQuery={activeQuery!}
-      queryHistory={queryHistory}
-      onSelectQuery={handleSelectQuery}
-      onNewSearch={() => setView("portal")}
-      onQuery={handleQuery}
-      onOpenGuide={() => setView("guide")}
-    />
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        color: "var(--text-primary)",
+        position: "relative",
+        overflow: "hidden"
+      }}
+    >
+      {/* Global Decorative Orbs for Glass Refraction */}
+      <div style={{ position: "absolute", top: "-10%", right: "10%", width: "600px", height: "600px", background: "var(--text-primary)", opacity: 0.03, borderRadius: "50%", filter: "blur(80px)", pointerEvents: "none", zIndex: 0 }} />
+      <div style={{ position: "absolute", bottom: "-10%", left: "-5%", width: "500px", height: "500px", background: "var(--text-primary)", opacity: 0.04, borderRadius: "50%", filter: "blur(100px)", pointerEvents: "none", zIndex: 0 }} />
+      
+      {view === "auth" && <AuthPage onAuth={handleAuth} onOpenGuide={() => setView("guide")} />}
+      {view === "portal" && (
+        <ResearchPortal
+          user={user!}
+          onQuery={handleQuery}
+          recentQueries={queryHistory.slice(0, 4)}
+          onSignOut={handleSignOut}
+          onOpenGuide={() => setView("guide")}
+        />
+      )}
+      {view === "guide" && <GetStarted user={user} onBack={() => setView(user ? "portal" : "auth")} />}
+      {view === "synthesis" && (
+        <SynthesisView
+          user={user!}
+          activeQuery={activeQuery!}
+          queryHistory={queryHistory}
+          onSelectQuery={handleSelectQuery}
+          onNewSearch={() => setView("portal")}
+          onQuery={handleQuery}
+          onOpenGuide={() => setView("guide")}
+        />
+      )}
+    </div>
   );
 }

@@ -337,7 +337,8 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
         display: "flex",
         flexDirection: "column",
         height: "100%",
-        background: "#FAFAFA",
+        background: "var(--bg-secondary)",
+        color: "var(--text-primary)"
       }}
     >
       {/* ── Viewer top bar ── */}
@@ -346,10 +347,10 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          padding: "0.5rem 1rem",
-          borderBottom: "1px solid #1C1C1C",
+          padding: "0.75rem 1.25rem",
+          borderBottom: "1px solid var(--border-light)",
           flexShrink: 0,
-          background: "#FAFAFA",
+          background: "var(--bg-primary)",
           gap: "0.75rem",
         }}
       >
@@ -359,8 +360,8 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
             style={{
               fontFamily: "var(--font-serif)",
               fontStyle: "italic",
-              fontSize: "0.8rem",
-              color: "#1C1C1C",
+              fontSize: "0.9rem",
+              color: "var(--text-primary)",
               margin: 0,
               overflow: "hidden",
               textOverflow: "ellipsis",
@@ -369,15 +370,15 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
           >
             {citation.title}
           </p>
-          <p style={{ fontSize: "0.6rem", color: "#9CA3AF", margin: 0 }}>
+          <p style={{ fontSize: "0.65rem", color: "var(--text-secondary)", margin: 0 }}>
             {citation.author} · {citation.journal}, {citation.year}
           </p>
         </div>
 
         {/* Controls */}
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
-            <span style={{ fontSize: "0.6rem", color: "#9CA3AF" }}>p.</span>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", background: "var(--accent-light)", padding: "2px 8px", borderRadius: "12px", border: "1px solid var(--border-light)" }}>
+            <span style={{ fontSize: "0.6rem", color: "var(--text-secondary)" }}>p.</span>
             <input
               type="text"
               value={pageInput}
@@ -390,16 +391,15 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
               }}
               style={{
                 width: 32,
-                fontSize: "0.65rem",
+                fontSize: "0.7rem",
                 textAlign: "center",
-                background: "#FFFFFF",
-                border: "1px solid #E5E7EB",
+                background: "transparent",
+                border: "none",
                 outline: "none",
-                padding: "1px 3px",
-                color: "#1C1C1C",
+                color: "var(--text-primary)",
               }}
             />
-            <span style={{ fontSize: "0.6rem", color: "#9CA3AF" }}>/ {doc.totalPages}</span>
+            <span style={{ fontSize: "0.6rem", color: "var(--text-secondary)" }}>/ {doc.totalPages}</span>
           </div>
 
           <IconBtn
@@ -418,18 +418,17 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
 
           <button
             onClick={onClose}
+            className="btn-ghost"
             style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              fontSize: "1rem",
-              lineHeight: 1,
-              color: "#6B7280",
-              padding: "0 2px",
-              transition: "color 0.12s",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "28px",
+              height: "28px",
+              padding: 0,
+              fontSize: "1.2rem",
+              borderRadius: "50%"
             }}
-            onMouseOver={(e) => (e.currentTarget.style.color = "#1C1C1C")}
-            onMouseOut={(e) => (e.currentTarget.style.color = "#6B7280")}
           >
             ×
           </button>
@@ -439,17 +438,17 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
       {loadingDoc && (
         <div
           style={{
-            padding: "0.3rem 1rem",
-            background: "#EFF6FF",
-            borderBottom: "1px solid #BFDBFE",
-            fontSize: "0.6rem",
-            color: "#1D4ED8",
+            padding: "0.4rem 1.25rem",
+            background: "var(--accent-light)",
+            borderBottom: "1px solid var(--border-light)",
+            fontSize: "0.65rem",
+            color: "var(--text-primary)",
             display: "flex",
             alignItems: "center",
             gap: "0.5rem",
           }}
         >
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#2563EB", display: "inline-block" }} />
+          <div className="loader-minimal" style={{ width: 10, height: 10, borderWidth: 2 }} />
           <span>Retrieving in-situ passage from library catalog archive…</span>
         </div>
       )}
@@ -461,20 +460,21 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
         {(focusMode || doc.sections.length > 1) && (
           <div
             style={{
-              width: focusMode ? 180 : 140,
+              width: focusMode ? 200 : 160,
               flexShrink: 0,
-              borderRight: "1px solid #E5E7EB",
+              borderRight: "1px solid var(--border-light)",
               overflowY: "auto",
-              padding: "1rem 0.75rem",
+              padding: "1.25rem 1rem",
+              background: "var(--bg-primary)"
             }}
           >
             <p
               style={{
-                fontSize: "0.55rem",
+                fontSize: "0.6rem",
                 textTransform: "uppercase",
                 letterSpacing: "0.14em",
-                color: "#9CA3AF",
-                marginBottom: "0.75rem",
+                color: "var(--text-secondary)",
+                marginBottom: "1rem",
               }}
             >
               Contents
@@ -484,16 +484,18 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
                 key={i}
                 onClick={() => setSectionIdx(i)}
                 style={{
-                  padding: "0.5rem 0",
-                  borderBottom: "1px solid #E5E7EB",
+                  padding: "0.75rem 0.5rem",
+                  borderBottom: "1px solid var(--border-light)",
                   cursor: "pointer",
+                  background: i === sectionIdx ? "var(--accent-light)" : "transparent",
+                  borderRadius: "6px"
                 }}
               >
                 <p
                   style={{
-                    fontSize: "0.58rem",
-                    color: "#9CA3AF",
-                    margin: "0 0 0.15rem",
+                    fontSize: "0.6rem",
+                    color: "var(--text-secondary)",
+                    margin: "0 0 0.2rem",
                     textTransform: "uppercase",
                     letterSpacing: "0.1em",
                   }}
@@ -502,9 +504,9 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
                 </p>
                 <p
                   style={{
-                    fontSize: "0.7rem",
-                    lineHeight: 1.35,
-                    color: i === sectionIdx ? "#1C1C1C" : "#6B7280",
+                    fontSize: "0.75rem",
+                    lineHeight: 1.4,
+                    color: i === sectionIdx ? "var(--text-primary)" : "var(--text-secondary)",
                     fontWeight: i === sectionIdx ? 600 : 400,
                     margin: 0,
                     fontFamily: i === sectionIdx ? "var(--font-serif)" : "var(--font-sans)",
@@ -519,23 +521,26 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
         )}
 
         {/* Document page */}
-        <div style={{ flex: 1, overflowY: "auto", padding: focusMode ? "2.5rem 8vw" : "1.25rem 1.5rem" }}>
+        <div style={{ flex: 1, overflowY: "auto", padding: focusMode ? "3rem 10vw" : "1.5rem 2rem" }}>
           {/* The framed document */}
           <div
+            className="glass-panel"
             style={{
-              border: "1px solid #1C1C1C",
-              background: "#FFFFFF",
+              background: "var(--bg-secondary)",
               minHeight: "calc(100% - 2rem)",
-              maxWidth: focusMode ? 680 : "none",
+              maxWidth: focusMode ? 760 : "none",
               margin: "0 auto",
+              border: "1px solid var(--border-strong)",
+              borderRadius: "12px",
+              overflow: "hidden"
             }}
           >
             {/* Document header strip */}
             <div
               style={{
-                padding: "0.625rem 1.5rem",
-                borderBottom: "1px solid #E5E7EB",
-                background: "#F8F8F8",
+                padding: "0.75rem 2rem",
+                borderBottom: "1px solid var(--border-light)",
+                background: "var(--bg-primary)",
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
@@ -547,13 +552,14 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
                 {citation.collectionType && (
                   <span
                     style={{
-                      fontSize: "0.55rem",
+                      fontSize: "0.6rem",
                       fontWeight: 600,
-                      color: "#0F172A",
-                      border: "1px solid #D1D5DB",
-                      padding: "0.1rem 0.4rem",
+                      color: "var(--text-primary)",
+                      border: "1px solid var(--border-strong)",
+                      padding: "0.15rem 0.5rem",
                       letterSpacing: "0.04em",
-                      background: "#FFFFFF",
+                      background: "var(--accent-light)",
+                      borderRadius: "12px"
                     }}
                   >
                     {citation.collectionType}
@@ -561,21 +567,21 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
                 )}
                 <span
                   style={{
-                    fontSize: "0.58rem",
+                    fontSize: "0.65rem",
                     textTransform: "uppercase",
                     letterSpacing: "0.14em",
-                    color: "#6B7280",
+                    color: "var(--text-secondary)",
                   }}
                 >
                   {citation.callNumber ? `Call # ${citation.callNumber}` : citation.journal}
                 </span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                <span style={{ fontSize: "0.58rem", color: "#9CA3AF" }}>
+                <span style={{ fontSize: "0.65rem", color: "var(--text-secondary)" }}>
                   {citation.journal}
                 </span>
                 {citation.doi && (
-                  <span style={{ fontSize: "0.56rem", color: "#C4C9D0" }}>
+                  <span style={{ fontSize: "0.65rem", color: "var(--text-secondary)" }}>
                     doi: {citation.doi}
                   </span>
                 )}
@@ -583,7 +589,7 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
             </div>
 
             {/* Page content */}
-            <div style={{ padding: "2.5rem 2.5rem 3rem" }}>
+            <div style={{ padding: "3rem 3rem 4rem" }}>
               {rawMode ? (
                 <div>
                   <div
@@ -591,28 +597,30 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
                       display: "flex",
                       justifyContent: "space-between",
                       alignItems: "center",
-                      marginBottom: "1.5rem",
-                      paddingBottom: "0.5rem",
-                      borderBottom: "1px solid #E5E7EB",
+                      marginBottom: "2rem",
+                      paddingBottom: "0.75rem",
+                      borderBottom: "1px solid var(--border-light)",
                     }}
                   >
                     <span
                       style={{
-                        fontSize: "0.58rem",
+                        fontSize: "0.65rem",
                         textTransform: "uppercase",
                         letterSpacing: "0.14em",
-                        color: "#6B7280",
+                        color: "var(--text-secondary)",
                       }}
                     >
                       Archival Leaf Transcript · Page {activePage}
                     </span>
                     <span
                       style={{
-                        fontSize: "0.56rem",
+                        fontSize: "0.6rem",
                         fontWeight: 600,
-                        color: "#0F172A",
-                        border: "1px solid #E5E7EB",
-                        padding: "0.08rem 0.35rem",
+                        color: "var(--text-primary)",
+                        background: "var(--accent-light)",
+                        border: "1px solid var(--border-strong)",
+                        borderRadius: "12px",
+                        padding: "0.15rem 0.5rem",
                       }}
                     >
                       Rare Archive Holding
@@ -620,21 +628,21 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
                   </div>
 
                   {loadingRaw ? (
-                    <p style={{ fontSize: "0.8rem", fontStyle: "italic", color: "#9CA3AF" }}>
+                    <p style={{ fontSize: "0.9rem", fontStyle: "italic", color: "var(--text-secondary)" }}>
                       Retrieving raw page text from rare book vault…
                     </p>
                   ) : (
                     <pre
                       style={{
                         fontFamily: "'Courier New', Courier, monospace",
-                        fontSize: "0.82rem",
-                        lineHeight: 1.75,
-                        color: "#1F2937",
+                        fontSize: "0.9rem",
+                        lineHeight: 1.8,
+                        color: "var(--text-primary)",
                         whiteSpace: "pre-wrap",
-                        background: "#F9FAFB",
-                        padding: "1.25rem",
-                        border: "1px solid #E5E7EB",
-                        borderRadius: "2px",
+                        background: "var(--accent-light)",
+                        padding: "1.5rem",
+                        border: "1px solid var(--border-light)",
+                        borderRadius: "8px",
                       }}
                     >
                       {rawPage?.text_content || section.blocks.map((b) => "text" in b ? b.text : "").filter(Boolean).join("\n\n")}
@@ -648,33 +656,33 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
                     style={{
                       display: "flex",
                       alignItems: "center",
-                      gap: "0.875rem",
-                      marginBottom: "1.75rem",
+                      gap: "1rem",
+                      marginBottom: "2rem",
                     }}
                   >
                     <span
                       style={{
-                        fontSize: "0.58rem",
+                        fontSize: "0.65rem",
                         textTransform: "uppercase",
                         letterSpacing: "0.16em",
-                        color: "#9CA3AF",
+                        color: "var(--text-secondary)",
                         flexShrink: 0,
+                        fontWeight: 600
                       }}
                     >
                       Chapter {section.chapterNum}
                     </span>
-                    <div style={{ flex: 1, height: 1, background: "#E5E7EB" }} />
+                    <div style={{ flex: 1, height: 1, background: "var(--border-light)" }} />
                   </div>
 
                   {/* Chapter title */}
                   <h2
                     style={{
                       fontFamily: "var(--font-serif)",
-                      fontSize: focusMode ? "1.6rem" : "1.3rem",
-                      fontWeight: 500,
+                      fontSize: focusMode ? "2rem" : "1.6rem",
+                      fontWeight: 600,
                       lineHeight: 1.25,
-                      color: "#1C1C1C",
-                      marginBottom: "1.75rem",
+                      marginBottom: "2rem",
                       marginTop: 0,
                     }}
                   >
@@ -682,13 +690,13 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
                   </h2>
 
                   {/* Blocks */}
-                  <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
                     {section.blocks.map((block, i) => {
                       if (block.type === "rule") {
                         return (
                           <div
                             key={i}
-                            style={{ height: 1, background: "#E5E7EB", margin: "0.75rem 0" }}
+                            style={{ height: 1, background: "var(--border-light)", margin: "1rem 0" }}
                           />
                         );
                       }
@@ -697,11 +705,11 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
                           <h3
                             key={i}
                             style={{
-                              fontFamily: "var(--font-serif)",
-                              fontSize: "1rem",
+                              fontFamily: "var(--font-sans)",
+                              fontSize: "1.1rem",
                               fontWeight: 600,
-                              color: "#1C1C1C",
-                              marginTop: "0.5rem",
+                              color: "var(--text-primary)",
+                              marginTop: "0.75rem",
                               marginBottom: 0,
                             }}
                           >
@@ -714,9 +722,9 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
                           <p
                             key={i}
                             style={{
-                              fontSize: focusMode ? "0.9rem" : "0.82rem",
+                              fontSize: focusMode ? "1rem" : "0.95rem",
                               lineHeight: 1.85,
-                              color: "#1C1C1C",
+                              color: "var(--text-primary)",
                               margin: 0,
                               textAlign: "justify",
                               hyphens: "auto",
@@ -731,14 +739,16 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
                           <blockquote
                             key={i}
                             style={{
-                              margin: "0.5rem 0",
-                              padding: "0.75rem 1.25rem",
-                              borderLeft: "2px solid #1C1C1C",
+                              margin: "1rem 0",
+                              padding: "1rem 1.5rem",
+                              borderLeft: "3px solid var(--accent)",
+                              background: "var(--accent-light)",
+                              borderRadius: "0 8px 8px 0",
                               fontFamily: "var(--font-serif)",
                               fontStyle: "italic",
-                              fontSize: focusMode ? "0.95rem" : "0.875rem",
-                              lineHeight: 1.7,
-                              color: "#1C1C1C",
+                              fontSize: focusMode ? "1.05rem" : "0.95rem",
+                              lineHeight: 1.8,
+                              color: "var(--text-primary)",
                             }}
                           >
                             {block.text}
@@ -747,32 +757,34 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
                       }
                       if (block.type === "highlight") {
                         return (
-                          <div key={i}>
+                          <div key={i} style={{ margin: "1rem 0" }}>
                             <div
                               style={{
                                 display: "flex",
                                 alignItems: "center",
                                 gap: "0.5rem",
-                                marginBottom: "0.5rem",
+                                marginBottom: "0.75rem",
                               }}
                             >
                               <span
                                 style={{
-                                  fontSize: "0.55rem",
+                                  fontSize: "0.6rem",
                                   textTransform: "uppercase",
                                   letterSpacing: "0.14em",
-                                  color: "#9CA3AF",
+                                  color: "var(--text-secondary)",
                                 }}
                               >
                                 Extracted passage
                               </span>
                               <span
                                 style={{
-                                  fontSize: "0.55rem",
+                                  fontSize: "0.6rem",
                                   fontWeight: 600,
-                                  color: "#0F172A",
-                                  border: "1px solid #E5E7EB",
-                                  padding: "0.1rem 0.375rem",
+                                  color: "var(--text-primary)",
+                                  background: "var(--accent-light)",
+                                  border: "1px solid var(--border-strong)",
+                                  borderRadius: "12px",
+                                  padding: "0.15rem 0.5rem",
                                   letterSpacing: "0.04em",
                                 }}
                               >
@@ -781,16 +793,17 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
                             </div>
                             <div
                               style={{
-                                padding: "1rem 1.25rem",
-                                backgroundColor: "rgba(254, 240, 138, 0.30)",
-                                borderLeft: "2px solid rgba(202, 138, 4, 0.4)",
+                                padding: "1.25rem 1.5rem",
+                                backgroundColor: "var(--accent-light)",
+                                borderLeft: "3px solid var(--accent)",
+                                borderRadius: "0 8px 8px 0",
                               }}
                             >
                               <p
                                 style={{
-                                  fontSize: focusMode ? "0.9rem" : "0.82rem",
+                                  fontSize: focusMode ? "1rem" : "0.95rem",
                                   lineHeight: 1.85,
-                                  color: "#1C1C1C",
+                                  color: "var(--text-primary)",
                                   margin: 0,
                                   fontStyle: "italic",
                                   textAlign: "justify",
@@ -813,37 +826,37 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
             {/* Page footer */}
             <div
               style={{
-                borderTop: "1px solid #E5E7EB",
-                padding: "0.625rem 2.5rem",
+                borderTop: "1px solid var(--border-light)",
+                padding: "0.85rem 3rem",
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
-                background: "#F8F8F8",
+                background: "var(--bg-primary)",
               }}
             >
-              <span style={{ fontSize: "0.6rem", color: "#C4C9D0" }}>
+              <span style={{ fontSize: "0.65rem", color: "var(--text-secondary)" }}>
                 © {citation.year} {citation.journal}
               </span>
-              <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+              <div style={{ display: "flex", gap: "1.5rem", alignItems: "center" }}>
                 {sectionIdx > 0 && (
                   <button
                     onClick={() => setSectionIdx((s) => s - 1)}
                     style={navBtnStyle}
-                    onMouseOver={(e) => (e.currentTarget.style.color = "#1C1C1C")}
-                    onMouseOut={(e) => (e.currentTarget.style.color = "#9CA3AF")}
+                    onMouseOver={(e) => (e.currentTarget.style.color = "var(--text-primary)")}
+                    onMouseOut={(e) => (e.currentTarget.style.color = "var(--text-secondary)")}
                   >
                     ← Prev
                   </button>
                 )}
-                <span style={{ fontSize: "0.6rem", color: "#9CA3AF" }}>
+                <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", fontWeight: 600 }}>
                   {citation.page}
                 </span>
                 {sectionIdx < doc.sections.length - 1 && (
                   <button
                     onClick={() => setSectionIdx((s) => s + 1)}
                     style={navBtnStyle}
-                    onMouseOver={(e) => (e.currentTarget.style.color = "#1C1C1C")}
-                    onMouseOut={(e) => (e.currentTarget.style.color = "#9CA3AF")}
+                    onMouseOver={(e) => (e.currentTarget.style.color = "var(--text-primary)")}
+                    onMouseOut={(e) => (e.currentTarget.style.color = "var(--text-secondary)")}
                   >
                     Next →
                   </button>
@@ -869,11 +882,12 @@ const navBtnStyle: React.CSSProperties = {
   background: "none",
   border: "none",
   cursor: "pointer",
-  fontSize: "0.62rem",
-  color: "#9CA3AF",
+  fontSize: "0.7rem",
+  color: "var(--text-secondary)",
   padding: 0,
-  transition: "color 0.12s",
+  transition: "color 0.2s",
   letterSpacing: "0.04em",
+  textTransform: "uppercase"
 };
 
 function IconBtn({
@@ -889,23 +903,11 @@ function IconBtn({
     <button
       onClick={onClick}
       title={title}
+      className="btn-ghost"
       style={{
-        background: "none",
-        border: "1px solid #E5E7EB",
-        cursor: "pointer",
-        padding: "2px 6px",
-        fontSize: "0.68rem",
-        color: "#6B7280",
-        lineHeight: 1.5,
-        transition: "border-color 0.12s, color 0.12s",
-      }}
-      onMouseOver={(e) => {
-        e.currentTarget.style.borderColor = "#1C1C1C";
-        e.currentTarget.style.color = "#1C1C1C";
-      }}
-      onMouseOut={(e) => {
-        e.currentTarget.style.borderColor = "#E5E7EB";
-        e.currentTarget.style.color = "#6B7280";
+        padding: "4px 10px",
+        fontSize: "0.7rem",
+        border: "1px solid var(--border-light)"
       }}
     >
       {children}
