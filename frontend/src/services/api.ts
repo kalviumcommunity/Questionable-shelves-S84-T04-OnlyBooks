@@ -92,7 +92,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 }
 
 export const authApi = {
-  async register(payload: RegisterPayload): Promise<AuthResponse> {
+  async register(email: string, password: string, name: string, payload: RegisterPayload): Promise<AuthResponse> {
     const data = await request<AuthResponse>("/auth/register", {
       method: "POST",
       body: JSON.stringify(payload),
@@ -101,7 +101,7 @@ export const authApi = {
     return data;
   },
 
-  async login(payload: LoginPayload): Promise<AuthResponse> {
+  async login(email: string, password: string, payload: LoginPayload): Promise<AuthResponse> {
     const data = await request<AuthResponse>("/auth/login", {
       method: "POST",
       body: JSON.stringify(payload),

@@ -1,8 +1,9 @@
-import { useState, useEffect, KeyboardEvent, useMemo } from "react";
+import { useState, useEffect, KeyboardEvent } from "react";
 import ReadingRoom from "./ReadingRoom";
-import type { Query, User } from "../App";
+import { ThemeToggle, type Query, type User } from "../App";
 import { getSynthesisForQuery, Citation, DocumentRecord } from "../data/libraryKnowledge";
 import { inquiryApi } from "../services/api";
+import Reveal from "../components/Reveal";
 
 export type { Citation };
 
@@ -25,11 +26,9 @@ const SUP: Record<number, string> = { 1: "¹", 2: "²", 3: "³", 4: "⁴", 5: "�
 const SUP_REVERSE: Record<string, number> = Object.fromEntries(
   Object.entries(SUP).map(([k, v]) => [v, Number(k)])
 );
-// Regex that matches any superscript digit we use
 const SUP_PATTERN = /([¹²³⁴⁵⁶⁷⁸⁹])/;
 
 // ── Paragraph renderer — splits on Unicode superscript markers ─────────────
-
 function RichParagraph({
   text,
   activeFootnote,
@@ -102,7 +101,6 @@ export default function SynthesisView({
 
     const localFallback = getSynthesisForQuery(activeQuery.question);
 
-    // If active query is an existing saved inquiry from DB history
     if (activeQuery.id.startsWith("inq-")) {
       inquiryApi
         .getSavedInquiry(activeQuery.id)
@@ -317,36 +315,38 @@ export default function SynthesisView({
       style={{
         display: "flex",
         flexDirection: "column",
-        height: "100%",
-        fontFamily: "var(--font-sans)",
-        background: "#FAFAFA",
+        flex: 1,
       }}
     >
       {/* ── Top nav ── */}
       <header
+        className="glass-nav"
         style={{
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           padding: "0.75rem 1.5rem",
-          borderBottom: "1px solid #E5E7EB",
           flexShrink: 0,
+          position: "relative",
+          zIndex: 10
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
           <button
             onClick={onNewSearch}
+            className="btn-ghost"
             style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
               display: "flex",
               alignItems: "center",
-              padding: "0.25rem",
+              justifyContent: "center",
+              width: "30px",
+              height: "30px",
+              borderRadius: "50%",
+              padding: 0
             }}
             title="Back to Search"
           >
-            <span style={{ color: "#9CA3AF", fontSize: "0.875rem" }}>←</span>
+            <span style={{ fontSize: "1rem" }}>←</span>
           </button>
           <button
             onClick={onOpenGuide}
@@ -355,35 +355,35 @@ export default function SynthesisView({
               background: "none",
               border: "none",
               padding: 0,
-              fontFamily: "var(--font-serif)",
-              fontWeight: 600,
-              fontSize: "1.05rem",
-              color: "#1C1C1C",
+              fontFamily: "var(--font-display)",
+              fontWeight: 700,
+              fontSize: "1.2rem",
               letterSpacing: "-0.01em",
               cursor: "pointer",
-              userSelect: "none",
+              marginLeft: "1rem",
+              color: "var(--text-primary)"
             }}
           >
-            OnlyBooks · University Library Archive
+            OnlyBooks
           </button>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
-          <span style={{ fontSize: "0.7rem", color: "#9CA3AF" }}>{activeQuery.timestamp}</span>
+          <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>{activeQuery.timestamp}</span>
+          <ThemeToggle />
           <div
             title={user.name}
             style={{
-              width: 28,
-              height: 28,
-              border: "1px solid #1C1C1C",
+              width: 32,
+              height: 32,
+              background: "var(--accent)",
+              borderRadius: "50%",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: "0.6rem",
+              fontSize: "0.75rem",
               fontWeight: 600,
-              color: "#1C1C1C",
-              letterSpacing: "0.05em",
-              userSelect: "none",
+              color: "var(--bg-primary)",
             }}
           >
             {user.initials}
@@ -392,58 +392,46 @@ export default function SynthesisView({
       </header>
 
       {/* ── Three-column body ── */}
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-
+      <div style={{ display: "flex", flex: 1, overflow: "hidden", position: "relative", zIndex: 5 }}>
         {/* Left — Research Trail (20%) */}
         <aside
           style={{
             width: "20%",
             flexShrink: 0,
-            borderRight: "1px solid #E5E7EB",
+            borderRight: "1px solid var(--border-light)",
+            background: "var(--bg-secondary)",
             overflowY: "auto",
-            padding: "1.5rem 1rem",
+            padding: "1.5rem 1.5rem",
           }}
         >
-          <p
-            style={{
-              fontSize: "0.58rem",
-              textTransform: "uppercase",
-              letterSpacing: "0.16em",
-              color: "#6B7280",
-              marginBottom: "1rem",
-            }}
-          >
-            Research Inquiry Trail
+          <p style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.16em", color: "var(--text-secondary)", marginBottom: "1rem", fontWeight: 600 }}>
+            Research Trail
           </p>
           {queryHistory.map((q) => {
             const isActive = q.id === activeQuery.id;
             return (
+              <Reveal key={q.id} delay={0.1}>
               <div
-                key={q.id}
                 onClick={() => {
                   onSelectQuery(q);
                   setOpenCitation(null);
                 }}
+                className={isActive ? "glass-panel" : "glass-panel-hover"}
                 style={{
-                  padding: "0.75rem 0",
-                  borderBottom: "1px solid #E5E7EB",
+                  padding: "1rem",
+                  marginBottom: "0.5rem",
                   cursor: "pointer",
+                  background: isActive ? "var(--accent-light)" : "transparent",
+                  border: isActive ? "1px solid var(--border-strong)" : "1px solid transparent",
+                  borderRadius: "8px"
                 }}
               >
-                <p
-                  style={{
-                    fontSize: "0.75rem",
-                    lineHeight: 1.45,
-                    color: isActive ? "#1C1C1C" : "#6B7280",
-                    fontWeight: isActive ? 600 : 400,
-                    fontStyle: isActive ? "normal" : "italic",
-                    marginBottom: "0.2rem",
-                  }}
-                >
+                <p style={{ fontSize: "0.8rem", lineHeight: 1.45, color: isActive ? "var(--text-primary)" : "var(--text-secondary)", fontWeight: isActive ? 600 : 400, marginBottom: "0.4rem" }}>
                   {q.question}
                 </p>
-                <p style={{ fontSize: "0.62rem", color: "#9CA3AF" }}>{q.timestamp}</p>
+                <p style={{ fontSize: "0.65rem", color: "var(--text-secondary)" }}>{q.timestamp}</p>
               </div>
+              </Reveal>
             );
           })}
         </aside>
@@ -456,23 +444,27 @@ export default function SynthesisView({
             display: "flex",
             flexDirection: "column",
             minWidth: 0,
+            position: "relative"
           }}
         >
           {/* Scrollable article */}
-          <div style={{ flex: 1, padding: "2.5rem 3rem", maxWidth: 740 }}>
+          <div style={{ flex: 1, padding: "3rem 4rem", maxWidth: 840, margin: "0 auto", width: "100%" }}>
             {/* H1 — the query */}
+            <Reveal delay={0}>
             <h1
               style={{
-                fontFamily: "var(--font-serif)",
-                fontSize: "2rem",
+                fontFamily: "var(--font-display)",
+                fontSize: "2.25rem",
                 lineHeight: 1.25,
-                fontWeight: 500,
-                color: "#1C1C1C",
-                marginBottom: "1.25rem",
+                fontWeight: 600,
+                marginBottom: "2rem",
+                letterSpacing: "-0.02em",
+                color: "var(--text-primary)"
               }}
             >
               {activeQuery.question}
             </h1>
+            </Reveal>
 
             {loading || !synthesis ? (
               <div>
@@ -480,279 +472,134 @@ export default function SynthesisView({
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
-                    gap: "0.6rem",
-                    padding: "0.35rem 0.75rem",
-                    background: "#EFF6FF",
-                    border: "1px solid #BFDBFE",
-                    borderRadius: "2px",
-                    marginBottom: "1.75rem",
+                    gap: "0.75rem",
+                    padding: "0.5rem 1rem",
+                    background: "var(--accent-light)",
+                    border: "1px solid var(--border-light)",
+                    borderRadius: "20px",
+                    marginBottom: "2rem",
                   }}
                 >
-                  <span
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: "50%",
-                      backgroundColor: "#2563EB",
-                      display: "inline-block",
-                    }}
-                  />
-                  <span
-                    style={{
-                      fontSize: "0.62rem",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.12em",
-                      color: "#1E40AF",
-                      fontWeight: 600,
-                    }}
-                  >
-                    Executing Hybrid Retrieval (Dense Vector + BM25 Lexical + Reciprocal Rank Fusion)…
+                  <div className="loader-minimal" style={{ width: 12, height: 12, borderWidth: 2 }} />
+                  <span style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--text-primary)", fontWeight: 600 }}>
+                    Synthesizing Hybrid Retrieval…
                   </span>
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: "1rem", marginTop: "1rem" }}>
-                  <div style={{ height: 16, background: "#F3F4F6", width: "100%", borderRadius: 2 }} />
-                  <div style={{ height: 16, background: "#F3F4F6", width: "94%", borderRadius: 2 }} />
-                  <div style={{ height: 16, background: "#F3F4F6", width: "98%", borderRadius: 2 }} />
-                  <div style={{ height: 16, background: "#F3F4F6", width: "82%", borderRadius: 2, marginBottom: "1rem" }} />
+                <div style={{ display: "flex", flexDirection: "column", gap: "1rem", marginTop: "1rem", opacity: 0.5 }}>
+                  <div style={{ height: 16, background: "var(--border-strong)", width: "100%", borderRadius: 4 }} className="animate-pulse" />
+                  <div style={{ height: 16, background: "var(--border-strong)", width: "94%", borderRadius: 4 }} className="animate-pulse" />
+                  <div style={{ height: 16, background: "var(--border-strong)", width: "98%", borderRadius: 4 }} className="animate-pulse" />
+                  <div style={{ height: 16, background: "var(--border-strong)", width: "82%", borderRadius: 4, marginBottom: "1rem" }} className="animate-pulse" />
 
-                  <div style={{ height: 16, background: "#F3F4F6", width: "100%", borderRadius: 2 }} />
-                  <div style={{ height: 16, background: "#F3F4F6", width: "91%", borderRadius: 2 }} />
-                  <div style={{ height: 16, background: "#F3F4F6", width: "87%", borderRadius: 2 }} />
+                  <div style={{ height: 16, background: "var(--border-strong)", width: "100%", borderRadius: 4 }} className="animate-pulse" />
+                  <div style={{ height: 16, background: "var(--border-strong)", width: "91%", borderRadius: 4 }} className="animate-pulse" />
+                  <div style={{ height: 16, background: "var(--border-strong)", width: "87%", borderRadius: 4 }} className="animate-pulse" />
                 </div>
               </div>
             ) : (
               <>
                 {/* Metadata byline */}
-                <div
-                  style={{
-                    borderBottom: "1px solid #E5E7EB",
-                    paddingBottom: "1rem",
-                    marginBottom: "2rem",
-                    display: "flex",
-                    gap: "1.25rem",
-                    alignItems: "center",
-                    flexWrap: "wrap",
-                  }}
-                >
+                <div style={{ borderBottom: "1px solid var(--border-light)", paddingBottom: "1.5rem", marginBottom: "2.5rem", display: "flex", gap: "1.25rem", alignItems: "center", flexWrap: "wrap" }}>
                   <MetaTag>Library Synthesis</MetaTag>
                   <MetaTag>
-                    {new Date().toLocaleDateString("en-GB", {
-                      day: "numeric",
-                      month: "long",
-                      year: "numeric",
-                    })}
+                    {new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
                   </MetaTag>
                   <MetaTag>{synthesis.citations.length} verified citations</MetaTag>
-                  <MetaTag>{synthesis.summaryByline}</MetaTag>
-                  <span
-                    style={{
-                      fontSize: "0.6rem",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.1em",
-                      color: "#065F46",
-                      background: "#ECFDF5",
-                      border: "1px solid #A7F3D0",
-                      padding: "0.1rem 0.45rem",
-                      fontWeight: 600,
-                    }}
-                  >
+                  
+                  <span style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--text-primary)", background: "var(--accent-light)", border: "1px solid var(--border-strong)", padding: "0.2rem 0.6rem", borderRadius: "12px", fontWeight: 600 }}>
                     Attribution: {Math.round(synthesis.attributionScore * 100)}% Grounded
                   </span>
+                  
                   {isStreaming && (
-                    <span
-                      style={{
-                        fontSize: "0.6rem",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.1em",
-                        color: "#1D4ED8",
-                        background: "#EFF6FF",
-                        border: "1px solid #BFDBFE",
-                        padding: "0.1rem 0.45rem",
-                        fontWeight: 600,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "0.4rem",
-                      }}
-                    >
-                      <span
-                        style={{
-                          width: 6,
-                          height: 6,
-                          borderRadius: "50%",
-                          backgroundColor: "#2563EB",
-                          display: "inline-block",
-                        }}
-                      />
-                      Streaming SSE Tokens Live…
+                    <span style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--text-primary)", background: "var(--accent-light)", border: "1px solid var(--border-strong)", padding: "0.2rem 0.6rem", borderRadius: "12px", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
+                      <div className="loader-minimal" style={{ width: 8, height: 8, borderWidth: 1 }} />
+                      Streaming Live…
                     </span>
                   )}
                 </div>
 
                 {/* Article body */}
-                <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-                  {synthesis.paragraphs.map((para, i) => (
-                    <p
-                      key={i}
-                      style={{
-                        fontSize: "0.925rem",
-                        lineHeight: 1.8,
-                        color: "#1C1C1C",
-                        margin: 0,
-                      }}
-                    >
-                      <RichParagraph
-                        text={para.text}
-                        activeFootnote={activeFootnote}
-                        onHover={setActiveFootnote}
-                        onOpen={openDoc}
-                      />
-                      {isStreaming && i === synthesis.paragraphs.length - 1 && (
-                        <span
-                          style={{
-                            display: "inline-block",
-                            marginLeft: "3px",
-                            color: "#2563EB",
-                            fontWeight: 700,
-                            opacity: 0.85,
-                          }}
-                        >
-                          ▍
-                        </span>
-                      )}
-                    </p>
+                <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+                  {synthesis.paragraphs.map((p, i) => (
+                    <Reveal key={i} delay={0.1 * (i + 1)}>
+                      <p style={{ fontSize: "1.05rem", lineHeight: 1.85, color: "var(--text-primary)", marginBottom: "1.5rem", fontFamily: "var(--font-serif)" }}>
+                        <RichParagraph text={p.text} activeFootnote={activeFootnote} onHover={setActiveFootnote} onOpen={openDoc} />
+                        {isStreaming && i === synthesis.paragraphs.length - 1 && (
+                          <span style={{ display: "inline-block", marginLeft: "4px", color: "var(--accent)", fontWeight: 700, animation: "pulse-glow 1s infinite" }}>▍</span>
+                        )}
+                      </p>
+                    </Reveal>
                   ))}
                 </div>
 
                 {/* References */}
-                <div
-                  style={{
-                    marginTop: "3rem",
-                    paddingTop: "1.5rem",
-                    borderTop: "1px solid #E5E7EB",
-                  }}
-                >
-                  <p
-                    style={{
-                      fontSize: "0.58rem",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.16em",
-                      color: "#6B7280",
-                      marginBottom: "0.875rem",
-                    }}
-                  >
+                <div style={{ marginTop: "4rem", paddingTop: "2rem", borderTop: "1px solid var(--border-light)" }}>
+                  <p style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.16em", color: "var(--text-secondary)", marginBottom: "1.25rem", fontWeight: 600 }}>
                     Catalog References & Library Holdings
                   </p>
-                  <ol style={{ listStyle: "none", padding: 0, margin: 0 }}>
-                    {synthesis.citations.map((c) => (
+                  <ol style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                    {synthesis.citations.map((c, i) => (
+                      <Reveal key={c.id} delay={0.05 * i}>
                       <li
-                        key={c.id}
                         onClick={() => openDoc(c.id)}
-                        style={{
-                          display: "flex",
-                          gap: "0.75rem",
-                          padding: "0.6rem 0",
-                          borderBottom: "1px solid #E5E7EB",
-                          fontSize: "0.74rem",
-                          lineHeight: 1.6,
-                          color: "#6B7280",
-                          cursor: "pointer",
-                          transition: "color 0.12s",
-                        }}
+                        className="glass-panel-hover"
+                        style={{ display: "flex", gap: "1rem", padding: "1rem", background: "transparent", border: "1px solid var(--border-light)", borderRadius: "8px", fontSize: "0.85rem", lineHeight: 1.6, color: "var(--text-secondary)", cursor: "pointer" }}
                         onMouseEnter={() => setActiveFootnote(c.id)}
                         onMouseLeave={() => setActiveFootnote(null)}
                       >
-                        <span style={{ fontWeight: 600, color: "#1C1C1C", flexShrink: 0 }}>
+                        <span style={{ fontWeight: 600, color: "var(--text-primary)", flexShrink: 0, fontSize: "0.9rem" }}>
                           {SUP[c.id] || `[${c.id}]`}
                         </span>
                         <span style={{ flex: 1 }}>
-                          <em style={{ fontFamily: "var(--font-serif)", color: "#1C1C1C" }}>{c.title}</em>
+                          <em style={{ color: "var(--text-primary)" }}>{c.title}</em>
                           {" — "}
                           {c.author} ({c.year}). {c.journal}.{" "}
-                          <span style={{ color: "#0F172A", fontWeight: 500 }}>[{c.collectionType} · Call #: {c.callNumber}]</span>
-                          {c.doi && <span style={{ color: "#9CA3AF" }}> DOI: {c.doi}</span>}
+                          <span style={{ color: "var(--text-secondary)", fontWeight: 500 }}>[{c.collectionType} · Call #: {c.callNumber}]</span>
                         </span>
-                        <span
-                          style={{
-                            fontSize: "0.58rem",
-                            fontWeight: 600,
-                            color: "#0F172A",
-                            border: "1px solid #E5E7EB",
-                            padding: "0.1rem 0.4rem",
-                            letterSpacing: "0.04em",
-                            height: "fit-content",
-                            flexShrink: 0,
-                          }}
-                        >
+                        <span style={{ fontSize: "0.65rem", fontWeight: 600, color: "var(--text-primary)", border: "1px solid var(--border-strong)", padding: "0.2rem 0.5rem", borderRadius: "12px", background: "var(--bg-secondary)", height: "fit-content", flexShrink: 0 }}>
                           {c.page}
                         </span>
                       </li>
+                      </Reveal>
                     ))}
                   </ol>
                 </div>
               </>
             )}
-            <div style={{ height: "5rem" }} />
+            <div style={{ height: "6rem" }} />
           </div>
 
-          {/* ── Sticky follow-up bar ── */}
-          <div
-            style={{
-              position: "sticky",
-              bottom: 0,
-              background: "#FAFAFA",
-              borderTop: "1px solid #E5E7EB",
-              padding: "0.875rem 3rem",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.75rem",
-            }}
-          >
-            <input
-              type="text"
-              value={followUp}
-              onChange={(e) => setFollowUp(e.target.value)}
-              onKeyDown={onKey}
-              placeholder="Ask a citation-backed follow-up question…"
-              style={{
-                flex: 1,
-                background: "transparent",
-                border: "none",
-                borderBottom: "1px solid #6B7280",
-                outline: "none",
-                fontSize: "0.875rem",
-                fontFamily: "var(--font-serif)",
-                fontStyle: "italic",
-                color: "#1C1C1C",
-                padding: "0.2rem 0 0.4rem",
-                transition: "border-color 0.12s",
-              }}
-              onFocus={(e) => (e.target.style.borderBottomColor = "#1C1C1C")}
-              onBlur={(e) => (e.target.style.borderBottomColor = "#6B7280")}
-            />
-            <button
-              onClick={submitFollowUp}
-              className="academic-btn-primary"
-              style={{
-                padding: "0.375rem 1rem",
-                fontSize: "0.7rem",
-                flexShrink: 0,
-              }}
-            >
-              Submit
-            </button>
+          {/* ── Floating follow-up bar ── */}
+          <div style={{ position: "absolute", bottom: "2rem", left: "50%", transform: "translateX(-50%)", width: "90%", maxWidth: 640 }}>
+            <div className="glass-panel" style={{ padding: "0.5rem", display: "flex", alignItems: "center", gap: "0.75rem", borderRadius: "12px", border: "1px solid var(--border-strong)" }}>
+              <input
+                type="text"
+                value={followUp}
+                onChange={(e) => setFollowUp(e.target.value)}
+                onKeyDown={onKey}
+                placeholder="Ask a citation-backed follow-up question…"
+                style={{ flex: 1, background: "transparent", border: "none", outline: "none", fontSize: "0.9rem", color: "var(--text-primary)", padding: "0.75rem 1rem", fontFamily: "var(--font-sans)" }}
+              />
+              <button onClick={submitFollowUp} className="btn-primary" style={{ padding: "0.6rem 1.2rem", fontSize: "0.8rem", borderRadius: "8px" }}>
+                Submit
+              </button>
+            </div>
           </div>
         </main>
 
         {/* Right — Bibliography / Reading Room */}
         <aside
-          className="reading-room-col"
+          className="reading-room-col glass-panel"
           style={{
             width: rightColWidth,
             flexShrink: 0,
-            borderLeft: "1px solid #E5E7EB",
+            borderLeft: "1px solid var(--border-light)",
+            background: "var(--bg-secondary)",
+            borderRadius: "0",
             overflowY: "auto",
             overflowX: "hidden",
+            zIndex: 10
           }}
         >
           {openCitation ? (
@@ -780,14 +627,7 @@ export default function SynthesisView({
 
 function MetaTag({ children }: { children: React.ReactNode }) {
   return (
-    <span
-      style={{
-        fontSize: "0.62rem",
-        textTransform: "uppercase",
-        letterSpacing: "0.12em",
-        color: "#9CA3AF",
-      }}
-    >
+    <span style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--text-secondary)", fontWeight: 500 }}>
       {children}
     </span>
   );
@@ -817,9 +657,7 @@ function BibliographyPanel({
       if (inquiryId && inquiryId.startsWith("inq-")) {
         try {
           bibText = await inquiryApi.getBibtex(inquiryId);
-        } catch {
-          // fallback to client-side BibTeX generator
-        }
+        } catch {}
       }
       if (!bibText) {
         bibText = citations
@@ -858,167 +696,74 @@ function BibliographyPanel({
   }
 
   return (
-    <div style={{ padding: "1.5rem 1.25rem" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.5rem" }}>
-        <p
-          style={{
-            fontSize: "0.58rem",
-            textTransform: "uppercase",
-            letterSpacing: "0.16em",
-            color: "#6B7280",
-            margin: 0,
-          }}
-        >
-          Library Bibliography
+    <div style={{ padding: "2rem 1.5rem" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "1.5rem" }}>
+        <p style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.16em", color: "var(--text-primary)", margin: 0, fontWeight: 600 }}>
+          Bibliography
         </p>
-        <span style={{ fontSize: "0.58rem", color: "#9CA3AF" }}>Click to read page</span>
+        <span style={{ fontSize: "0.65rem", color: "var(--text-secondary)" }}>Click to view document</span>
       </div>
 
-      {/* BibTeX Export and Copy Actions */}
-      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
+      <div style={{ display: "flex", gap: "0.75rem", marginBottom: "1.5rem" }}>
         <button
           onClick={handleExportBibtex}
           disabled={exporting || citations.length === 0}
-          style={{
-            flex: 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "0.3rem",
-            padding: "0.35rem 0.5rem",
-            fontSize: "0.62rem",
-            background: "#FFFFFF",
-            border: "1px solid #D1D5DB",
-            color: "#1F2937",
-            cursor: citations.length === 0 ? "not-allowed" : "pointer",
-            fontWeight: 500,
-            opacity: citations.length === 0 ? 0.6 : 1,
-          }}
-          title="Download citations in BibTeX format for reference managers"
+          className="btn-ghost"
+          style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", padding: "0.5rem", fontSize: "0.7rem", opacity: citations.length === 0 ? 0.5 : 1, border: "1px solid var(--border-light)" }}
         >
           <span>📥</span>
-          <span>{exporting ? "Exporting…" : "Export BibTeX"}</span>
+          <span>{exporting ? "Exporting…" : "BibTeX"}</span>
         </button>
 
         <button
           onClick={handleCopyCitations}
           disabled={citations.length === 0}
-          style={{
-            flex: 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "0.3rem",
-            padding: "0.35rem 0.5rem",
-            fontSize: "0.62rem",
-            background: copied ? "#ECFDF5" : "#FFFFFF",
-            border: `1px solid ${copied ? "#A7F3D0" : "#D1D5DB"}`,
-            color: copied ? "#059669" : "#1F2937",
-            cursor: citations.length === 0 ? "not-allowed" : "pointer",
-            fontWeight: 500,
-            opacity: citations.length === 0 ? 0.6 : 1,
-          }}
-          title="Copy formatted citation text to clipboard"
+          className="btn-ghost"
+          style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", padding: "0.5rem", fontSize: "0.7rem", border: "1px solid var(--border-light)", background: copied ? "var(--text-primary)" : "transparent", color: copied ? "var(--bg-primary)" : "inherit", opacity: citations.length === 0 ? 0.5 : 1 }}
         >
           <span>{copied ? "✓" : "📋"}</span>
-          <span>{copied ? "Copied!" : "Copy Citations"}</span>
+          <span>{copied ? "Copied!" : "Copy"}</span>
         </button>
       </div>
 
-      {citations.map((c) => {
-        const highlighted = activeFootnote === c.id;
-        return (
-          <div
-            key={c.id}
-            onMouseEnter={() => onHover(c.id)}
-            onMouseLeave={() => onHover(null)}
-            onClick={() => onOpen(c.id)}
-            style={{
-              padding: "0.875rem 0.625rem",
-              borderBottom: "1px solid #E5E7EB",
-              background: highlighted ? "#F3F4F6" : "transparent",
-              cursor: "pointer",
-              transition: "background 0.12s",
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.25rem" }}>
-              <span
-                style={{
-                  fontSize: "0.52rem",
-                  fontWeight: 600,
-                  color: "#0F172A",
-                  border: "1px solid #E5E7EB",
-                  padding: "0.05rem 0.3rem",
-                  letterSpacing: "0.04em",
-                  background: "#FFFFFF",
-                }}
-              >
-                {c.collectionType}
-              </span>
-              <span style={{ fontSize: "0.54rem", color: "#9CA3AF" }}>
-                {c.callNumber}
-              </span>
-            </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+        {citations.map((c) => {
+          const highlighted = activeFootnote === c.id;
+          return (
+            <div
+              key={c.id}
+              className="glass-panel-hover"
+              onMouseEnter={() => onHover(c.id)}
+              onMouseLeave={() => onHover(null)}
+              onClick={() => onOpen(c.id)}
+              style={{ padding: "1rem", background: highlighted ? "var(--accent-light)" : "transparent", border: "1px solid", borderColor: highlighted ? "var(--border-strong)" : "var(--border-light)", borderRadius: "8px", cursor: "pointer" }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
+                <span style={{ fontSize: "0.55rem", fontWeight: 600, color: "var(--text-primary)", border: "1px solid var(--border-strong)", padding: "0.1rem 0.4rem", borderRadius: "12px", background: "var(--accent-light)" }}>
+                  {c.collectionType}
+                </span>
+                <span style={{ fontSize: "0.6rem", color: "var(--text-secondary)" }}>{c.callNumber}</span>
+              </div>
 
-            <div
-              style={{
-                display: "flex",
-                gap: "0.5rem",
-                alignItems: "flex-start",
-                marginBottom: "0.375rem",
-              }}
-            >
-              <span
-                style={{
-                  fontSize: "0.65rem",
-                  fontWeight: 600,
-                  color: "#0F172A",
-                  flexShrink: 0,
-                  paddingTop: "0.125rem",
-                }}
-              >
-                {SUP[c.id]}
-              </span>
-              <p
-                style={{
-                  fontFamily: "var(--font-serif)",
-                  fontStyle: "italic",
-                  fontSize: "0.825rem",
-                  lineHeight: 1.35,
-                  color: "#1C1C1C",
-                  margin: 0,
-                }}
-              >
-                {c.title}
-              </p>
+              <div style={{ display: "flex", gap: "0.5rem", alignItems: "flex-start", marginBottom: "0.5rem" }}>
+                <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-primary)", flexShrink: 0, paddingTop: "0.1rem" }}>
+                  {SUP[c.id]}
+                </span>
+                <p style={{ fontStyle: "italic", fontSize: "0.85rem", lineHeight: 1.4, color: "var(--text-primary)", margin: 0 }}>
+                  {c.title}
+                </p>
+              </div>
+              
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "0.5rem", borderTop: "1px solid var(--border-light)" }}>
+                <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>{c.author} · {c.year}</span>
+                <span style={{ fontSize: "0.6rem", fontWeight: 600, color: "var(--text-primary)", background: "var(--accent-light)", padding: "0.2rem 0.5rem", borderRadius: "12px" }}>
+                  {c.page}
+                </span>
+              </div>
             </div>
-            <div
-              style={{
-                paddingLeft: "1rem",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <span style={{ fontSize: "0.65rem", color: "#6B7280" }}>
-                {c.author} · {c.year}
-              </span>
-              <span
-                style={{
-                  fontSize: "0.58rem",
-                  fontWeight: 600,
-                  color: "#0F172A",
-                  border: "1px solid #E5E7EB",
-                  padding: "0.1rem 0.4rem",
-                  letterSpacing: "0.04em",
-                }}
-              >
-                {c.page}
-              </span>
-            </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
