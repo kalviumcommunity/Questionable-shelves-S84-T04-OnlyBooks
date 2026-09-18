@@ -4,6 +4,7 @@ import { ThemeToggle, type Query, type User } from "../App";
 import { getSynthesisForQuery, Citation, DocumentRecord } from "../data/libraryKnowledge";
 import { inquiryApi } from "../services/api";
 import Reveal from "../components/Reveal";
+import UserMenu from "../components/UserMenu";
 
 export type { Citation };
 
@@ -19,6 +20,7 @@ interface Props {
   onNewSearch: () => void;
   onQuery: (question: string, collectionFilter?: string) => void;
   onOpenGuide?: () => void;
+  onSignOut: () => void;
 }
 
 // Unicode superscript map for footnote markers 1–9
@@ -76,6 +78,7 @@ export default function SynthesisView({
   onNewSearch,
   onQuery,
   onOpenGuide,
+  onSignOut,
 }: Props) {
   const [loading, setLoading] = useState(true);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -371,23 +374,7 @@ export default function SynthesisView({
         <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
           <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>{activeQuery.timestamp}</span>
           <ThemeToggle />
-          <div
-            title={user.name}
-            style={{
-              width: 32,
-              height: 32,
-              background: "var(--accent)",
-              borderRadius: "50%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "0.75rem",
-              fontWeight: 600,
-              color: "var(--bg-primary)",
-            }}
-          >
-            {user.initials}
-          </div>
+          <UserMenu user={user} onSignOut={onSignOut} />
         </div>
       </header>
 
