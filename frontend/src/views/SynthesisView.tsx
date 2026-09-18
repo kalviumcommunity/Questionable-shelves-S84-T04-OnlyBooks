@@ -5,6 +5,7 @@ import { getSynthesisForQuery, Citation, DocumentRecord } from "../data/libraryK
 import { inquiryApi } from "../services/api";
 import Reveal from "../components/Reveal";
 import UserMenu from "../components/UserMenu";
+import NotificationPopover from "../components/NotificationPopover";
 
 export type { Citation };
 
@@ -374,6 +375,7 @@ export default function SynthesisView({
         <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
           <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>{activeQuery.timestamp}</span>
           <ThemeToggle />
+          <NotificationPopover />
           <UserMenu user={user} onSignOut={onSignOut} />
         </div>
       </header>
