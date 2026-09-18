@@ -200,6 +200,3 @@ export default function GetStarted({ user, onBack, onSignOut }: Props) {
     </div>
   );
 }
-export default function GetStarted() { return <div>Get Started</div>; }
-
-// polished design elements
