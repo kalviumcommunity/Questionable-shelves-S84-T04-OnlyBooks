@@ -5,6 +5,7 @@ import { catalogApi, CatalogMetrics, CatalogDocument } from "../services/api";
 import DepositModal from "../components/DepositModal";
 import Reveal from "../components/Reveal";
 import UserMenu from "../components/UserMenu";
+import NotificationPopover from "../components/NotificationPopover";
 
 type FilterType = "all" | "papers" | "theses" | "reserves";
 
@@ -125,7 +126,7 @@ export default function ResearchPortal({ user, onQuery, recentQueries, onSignOut
           </button>
           
           <ThemeToggle />
-
+          <NotificationPopover />
           <UserMenu user={user} onSignOut={onSignOut} />
         </nav>
       </header>
