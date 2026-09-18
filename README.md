@@ -76,7 +76,20 @@ The script will automatically start the backend API on port `8000`, launch the f
 
 ---
 
-### Option B: Manual Startup
+### Option B: Docker Containerized Orchestration (Production Ready)
+
+Run the entire platform (FastAPI backend + Nginx reverse proxy + React 19 frontend + persistent volume) with a single command:
+```bash
+docker compose up --build
+```
+
+- **Frontend Portal**: [http://localhost:5173](http://localhost:5173)
+- **Backend API & Swagger Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
+- **Persistent Volume**: Relational catalog and vector data are safely preserved in `onlybooks_data`.
+
+---
+
+### Option C: Manual Startup
 
 #### 1. Backend Setup & Run
 ```bash
