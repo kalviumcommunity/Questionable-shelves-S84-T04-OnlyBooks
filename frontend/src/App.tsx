@@ -189,7 +189,7 @@ export default function App() {
           onOpenGuide={() => setView("guide")}
         />
       )}
-      {view === "guide" && <GetStarted user={user} onBack={() => setView(user ? "portal" : "auth")} />}
+      {view === "guide" && <GetStarted user={user} onBack={() => setView(user ? "portal" : "auth")} onSignOut={handleSignOut} />}
       {view === "synthesis" && (
         <SynthesisView
           user={user!}
@@ -199,6 +199,7 @@ export default function App() {
           onNewSearch={() => setView("portal")}
           onQuery={handleQuery}
           onOpenGuide={() => setView("guide")}
+          onSignOut={handleSignOut}
         />
       )}
     </div>

@@ -1,12 +1,14 @@
 import { User, ThemeToggle } from "../App";
+import UserMenu from "../components/UserMenu";
 import Reveal from "../components/Reveal";
 
 interface Props {
-  user?: User | null;
+  user: User | null;
   onBack: () => void;
+  onSignOut?: () => void;
 }
 
-export default function GetStarted({ user, onBack }: Props) {
+export default function GetStarted({ user, onBack, onSignOut }: Props) {
   return (
     <div
       className="flex flex-col"
@@ -45,25 +47,10 @@ export default function GetStarted({ user, onBack }: Props) {
           
           <ThemeToggle />
           
-          {user && (
-            <div
-              title={user.name}
-              style={{
-                width: 34,
-                height: 34,
-                background: "var(--accent)",
-                borderRadius: "50%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "0.8rem",
-                fontWeight: 600,
-                color: "var(--bg-primary)",
-                userSelect: "none",
-              }}
-            >
-              {user.initials}
-            </div>
+          {user && onSignOut ? (
+            <UserMenu user={user} onSignOut={onSignOut} />
+          ) : (
+            <div style={{ width: 32, height: 32 }} />
           )}
         </nav>
       </header>

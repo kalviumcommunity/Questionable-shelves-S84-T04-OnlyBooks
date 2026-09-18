@@ -4,6 +4,7 @@ import { ACQUISITIONS, LibraryItem } from "../data/libraryKnowledge";
 import { catalogApi, CatalogMetrics, CatalogDocument } from "../services/api";
 import DepositModal from "../components/DepositModal";
 import Reveal from "../components/Reveal";
+import UserMenu from "../components/UserMenu";
 
 type FilterType = "all" | "papers" | "theses" | "reserves";
 
@@ -123,36 +124,9 @@ export default function ResearchPortal({ user, onQuery, recentQueries, onSignOut
             Guide
           </button>
           
-          <button
-            onClick={onSignOut}
-            className="btn-ghost"
-            style={{ fontSize: "0.8rem", padding: "0.4rem 0.75rem" }}
-          >
-            Sign Out
-          </button>
-          
           <ThemeToggle />
 
-          <div
-            style={{
-              width: 32,
-              height: 32,
-              background: "var(--accent)",
-              borderRadius: "50%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "0.75rem",
-              fontWeight: 600,
-              color: "var(--bg-primary)",
-              letterSpacing: "0.05em",
-              cursor: "default",
-              userSelect: "none",
-            }}
-            title={user.name}
-          >
-            {user.initials}
-          </div>
+          <UserMenu user={user} onSignOut={onSignOut} />
         </nav>
       </header>
 
