@@ -213,6 +213,3 @@ export default function GetStarted({ user, onBack }: Props) {
     </div>
   );
 }
-export default function GetStarted() { return <div>Get Started</div>; }
-
-// polished design elements
