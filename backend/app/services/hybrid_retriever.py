@@ -6,19 +6,22 @@ from sqlalchemy.orm import selectinload
 from .chunk_models import LibraryChunk, RetrievalResult
 from .dense_indexer import DenseVectorIndexer
 from .bm25_indexer import BM25LexicalIndexer
+from .reranker import Reranker, reranker as default_reranker
 from ..models.document import Document
 from ..models.document_section import DocumentSection
 
 class HybridRetriever:
     """
     Hybrid retrieval orchestrator combining dense semantic search (DenseVectorIndexer)
-    and sparse lexical search (BM25LexicalIndexer) via Reciprocal Rank Fusion (RRF).
+    and sparse lexical search (BM25LexicalIndexer) via Reciprocal Rank Fusion (RRF),
+    followed by a Two-Stage Cross-Encoder Relevance Reranker (plan.md Section 6.1).
     """
 
-    def __init__(self, rrf_k: int = 60):
+    def __init__(self, rrf_k: int = 60, reranker_instance: Optional[Reranker] = None):
         self.rrf_k = rrf_k
         self.dense_indexer = DenseVectorIndexer()
         self.bm25_indexer = BM25LexicalIndexer()
+        self.reranker = reranker_instance or default_reranker
         self._is_indexed = False
 
     @property
@@ -86,9 +89,11 @@ class HybridRetriever:
         top_k: int = 5,
         collection_filter: Optional[str] = None,
         candidate_pool: int = 25,
+        apply_reranking: bool = True,
     ) -> List[RetrievalResult]:
         """
-        Execute hybrid search and merge candidate ranks using Reciprocal Rank Fusion (RRF).
+        Execute hybrid search and merge candidate ranks using Reciprocal Rank Fusion (RRF),
+        followed by Two-Stage Relevance Reranking (plan.md Section 6.1).
         RRF(d) = 1 / (k + rank_dense) + 1 / (k + rank_bm25)
         """
         if not self._is_indexed:
@@ -141,9 +146,14 @@ class HybridRetriever:
         # Sort by RRF score descending
         fused_results.sort(key=lambda x: x.rrf_score, reverse=True)
 
-        # Assign final rank
+        # Assign initial RRF ranks
         for rank, res in enumerate(fused_results, start=1):
             res.rank = rank
+
+        # Stage 2: Relevance Reranker (plan.md Section 6.1)
+        if apply_reranking and self.reranker:
+            candidate_subset = fused_results[:15]
+            return self.reranker.rerank(query=query, candidates=candidate_subset, top_k=top_k)
 
         return fused_results[:top_k]
 

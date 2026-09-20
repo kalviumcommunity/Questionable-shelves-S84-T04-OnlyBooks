@@ -20,4 +20,5 @@ class RetrievalResult(BaseModel):
     dense_score: float = 0.0
     bm25_score: float = 0.0
     rrf_score: float = 0.0
+    rerank_score: float = 0.0
     rank: int = 0
