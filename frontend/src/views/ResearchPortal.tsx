@@ -1,6 +1,6 @@
-import { useState, useEffect, KeyboardEvent } from "react";
+﻿import { useState, useEffect, KeyboardEvent } from "react";
 import { ThemeToggle, type Query, type User } from "../App";
-import { ACQUISITIONS, LibraryItem } from "../data/libraryKnowledge";
+import { ACQUISITIONS } from "../data/libraryKnowledge";
 import { catalogApi, CatalogMetrics, CatalogDocument } from "../services/api";
 import DepositModal from "../components/DepositModal";
 import Reveal from "../components/Reveal";
@@ -32,26 +32,18 @@ export default function ResearchPortal({ user, onQuery, recentQueries, onSignOut
   }
 
   useEffect(() => {
-    catalogApi.getMetrics()
-      .then((m) => setMetrics(m))
-      .catch(() => {});
+    catalogApi.getMetrics().then((m) => setMetrics(m)).catch(() => {});
   }, []);
 
   useEffect(() => {
-    catalogApi.getAcquisitions(filter)
-      .then((res) => {
-        if (res.items && res.items.length > 0) {
-          setLiveAcquisitions(res.items);
-        }
-      })
-      .catch(() => {});
+    catalogApi.getAcquisitions(filter).then((res) => {
+      if (res.items && res.items.length > 0) setLiveAcquisitions(res.items);
+    }).catch(() => {});
   }, [filter]);
 
   function submit() {
     const trimmed = input.trim();
-    if (trimmed) {
-      onQuery(trimmed, filter);
-    }
+    if (trimmed) onQuery(trimmed, filter);
   }
 
   function onKey(e: KeyboardEvent<HTMLInputElement>) {
@@ -77,241 +69,344 @@ export default function ResearchPortal({ user, onQuery, recentQueries, onSignOut
       });
 
   const holdingsStats = [
-    [metrics ? `${metrics.total_papers.toLocaleString()}+` : "148,000+", "University research papers"],
-    [metrics ? `${metrics.total_theses.toLocaleString()}+` : "24,500+", "Doctoral & master's theses"],
-    [metrics ? `${metrics.total_reserves.toLocaleString()}+` : "6,200+", "Course syllabus reserves"],
-    [metrics ? metrics.last_sync : "Live Sync", "University library catalogs"],
+    { value: metrics ? `${metrics.total_papers.toLocaleString()}+` : "148,000+", label: "Research Papers", icon: "📄" },
+    { value: metrics ? `${metrics.total_theses.toLocaleString()}+` : "24,500+", label: "Doctoral Theses", icon: "🎓" },
+    { value: metrics ? `${metrics.total_reserves.toLocaleString()}+` : "6,200+", label: "Course Reserves", icon: "📚" },
+    { value: metrics ? metrics.last_sync : "Live", label: "Catalog Sync", icon: "🔄" },
+  ];
+
+  const filters: { id: FilterType; label: string }[] = [
+    { id: "all",      label: "All Collections" },
+    { id: "papers",   label: "Research Papers" },
+    { id: "theses",   label: "Theses & Dissertations" },
+    { id: "reserves", label: "Course Reserves" },
   ];
 
   return (
     <div className="flex flex-col flex-1">
+      <style>{`
+        .portal-filter-chip {
+          padding: 0.4rem 1rem;
+          border-radius: 9999px;
+          border: 1.5px solid var(--border-strong);
+          background: transparent;
+          color: var(--text-secondary);
+          font-size: 0.78rem;
+          font-weight: 500;
+          font-family: var(--font-sans);
+          cursor: pointer;
+          transition: all 0.2s ease;
+          letter-spacing: 0.01em;
+          white-space: nowrap;
+        }
+        .portal-filter-chip:hover {
+          background: var(--accent-light);
+          color: var(--text-primary);
+          border-color: var(--text-secondary);
+        }
+        .portal-filter-chip.active {
+          background: var(--accent);
+          color: var(--bg-primary);
+          border-color: var(--accent);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+        }
+        .stat-card {
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+          padding: 1rem 1.25rem;
+          border-radius: 16px;
+          background: var(--glass-bg);
+          border: 1.5px solid rgba(255,255,255,0.88);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          transition: all 0.25s ease;
+        }
+        body.dark .stat-card { border-color: rgba(255,255,255,0.1); }
+        .stat-card:hover { transform: translateY(-2px); box-shadow: var(--glass-shadow-hover); }
+        .search-bar-wrapper {
+          position: relative;
+          display: flex;
+          align-items: center;
+        }
+        .search-bar-wrapper svg.search-icon {
+          position: absolute;
+          left: 1rem;
+          width: 18px; height: 18px;
+          color: var(--text-secondary);
+          pointer-events: none;
+          flex-shrink: 0;
+        }
+        .search-input {
+          width: 100%;
+          padding: 0.95rem 8rem 0.95rem 2.85rem;
+          font-size: 0.95rem;
+          font-family: var(--font-sans);
+          border-radius: 14px;
+          border: 1.5px solid rgba(255,255,255,0.92);
+          background: rgba(255,255,255,0.88);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          color: var(--text-primary);
+          outline: none;
+          transition: all 0.22s ease;
+          box-shadow: inset 0 2px 4px rgba(0,0,0,0.03);
+          box-sizing: border-box;
+        }
+        .search-input::placeholder { color: var(--text-secondary); opacity: 0.65; }
+        .search-input:focus {
+          border-color: var(--accent);
+          box-shadow: 0 0 0 3px var(--accent-ring), inset 0 2px 4px rgba(0,0,0,0.02);
+        }
+        body.dark .search-input {
+          background: rgba(255,255,255,0.06);
+          border-color: rgba(255,255,255,0.14);
+        }
+        body.dark .search-input:focus { border-color: var(--accent); }
+        .search-submit-btn {
+          position: absolute;
+          right: 0.5rem;
+          padding: 0.5rem 1.1rem;
+          border-radius: 10px;
+          border: none;
+          background: var(--accent);
+          color: var(--bg-primary);
+          font-size: 0.8rem;
+          font-weight: 600;
+          font-family: var(--font-sans);
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .search-submit-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+        .acq-card {
+          break-inside: avoid;
+          margin-bottom: 1.25rem;
+          padding: 1.4rem;
+          background: var(--glass-bg);
+          border: 1.5px solid rgba(255,255,255,0.88);
+          border-radius: 18px;
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          cursor: pointer;
+          transition: all 0.32s cubic-bezier(0.16,1,0.3,1);
+          box-shadow: var(--glass-shadow);
+        }
+        body.dark .acq-card { border-color: rgba(255,255,255,0.08); }
+        .acq-card:hover {
+          transform: translateY(-4px);
+          box-shadow: var(--glass-shadow-hover);
+          border-color: rgba(255,255,255,0.96);
+          background: var(--glass-hover);
+        }
+        body.dark .acq-card:hover { border-color: rgba(255,255,255,0.16); }
+        .recent-q-item {
+          padding: 0.9rem 1.25rem;
+          background: rgba(255,255,255,0.55);
+          border: 1.5px solid rgba(255,255,255,0.88);
+          border-radius: 14px;
+          cursor: pointer;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 1rem;
+          transition: all 0.25s ease;
+          backdrop-filter: blur(12px);
+        }
+        body.dark .recent-q-item { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.08); }
+        .recent-q-item:hover {
+          background: rgba(255,255,255,0.75);
+          transform: translateX(4px);
+          border-color: rgba(255,255,255,0.95);
+          box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+        }
+        body.dark .recent-q-item:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.14); }
+      `}</style>
+
       {/* ── Navigation ── */}
-      <header className="glass-nav flex items-center justify-between px-8 py-4 flex-shrink-0 relative z-10">
+      <header className="glass-nav flex items-center justify-between px-6 py-3 flex-shrink-0 relative z-10">
         <button
           onClick={onOpenGuide}
-          title="Reader's Guide"
           style={{
-            background: "none",
-            border: "none",
-            padding: 0,
-            fontFamily: "var(--font-display)",
-            fontWeight: 700,
-            fontSize: "1.2rem",
-            letterSpacing: "-0.02em",
-            cursor: "pointer",
-            color: "var(--text-primary)"
+            display: "flex", alignItems: "center", gap: "0.45rem",
+            background: "none", border: "none", padding: 0,
+            cursor: "pointer", color: "var(--text-primary)",
           }}
         >
-          OnlyBooks
+          <div style={{ width: "26px", height: "26px", borderRadius: "7px", background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke="var(--bg-primary)">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+            </svg>
+          </div>
+          <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "1.05rem", letterSpacing: "-0.025em" }}>
+            OnlyBooks
+          </span>
         </button>
-        <nav className="flex items-center gap-6">
+
+        <nav className="flex items-center gap-5">
           <NavLink active={filter === "papers"} onClick={() => setFilter("papers")}>Research Papers</NavLink>
           <NavLink active={filter === "theses"} onClick={() => setFilter("theses")}>Theses</NavLink>
           <NavLink active={filter === "reserves"} onClick={() => setFilter("reserves")}>Reserves</NavLink>
 
+          <div style={{ width: "1px", height: "16px", background: "var(--border-strong)", opacity: 0.6 }} />
+
           <button
             onClick={() => setIsDepositOpen(true)}
             className="btn-primary"
-            style={{ padding: "0.4rem 1rem", fontSize: "0.75rem", letterSpacing: "0.03em" }}
+            style={{ padding: "0.38rem 0.9rem", fontSize: "0.78rem", display: "flex", alignItems: "center", gap: "0.3rem" }}
           >
-            + Deposit
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            Deposit
           </button>
 
-          <button
-            onClick={onOpenGuide}
-            className="btn-ghost"
-            style={{ fontSize: "0.8rem", padding: "0.4rem 0.75rem" }}
-          >
+          <button onClick={onOpenGuide} className="btn-ghost" style={{ fontSize: "0.78rem", padding: "0.38rem 0.75rem" }}>
             Guide
           </button>
-          
+
           <ThemeToggle />
           <NotificationPopover />
           <UserMenu user={user} onSignOut={onSignOut} />
         </nav>
       </header>
 
-      {/* ── Main Grid ── */}
-      <div className="flex-1 px-8 pt-16 pb-12 z-10">
+      {/* ── Main Content ── */}
+      <div className="flex-1 px-8 pt-12 pb-12 z-10">
         <div className="max-w-7xl mx-auto">
-          
-          <div className="grid grid-cols-3 gap-16 mb-16">
-            {/* Left — manifesto */}
+
+          <div className="grid grid-cols-3 gap-12 mb-12">
+            {/* ── Left Column ── */}
             <div className="col-span-1">
               <Reveal delay={0}>
-                <h2
-                style={{
-                  fontFamily: "var(--font-display)",
-                  fontSize: "2rem",
-                  lineHeight: 1.2,
-                  fontWeight: 600,
-                  marginBottom: "1.5rem",
-                  letterSpacing: "-0.03em",
-                  color: "var(--text-primary)"
-                }}
-              >
-                Synthesize library holdings in seconds.
-              </h2>
-              <p style={{ fontSize: "0.9rem", lineHeight: 1.7, color: "var(--text-secondary)", marginBottom: "2.5rem" }}>
-                OnlyBooks connects research papers, theses, and course materials into concise, citation-backed explanations.
-              </p>
-
-              <div className="glass-panel" style={{ padding: "1.5rem" }}>
-                <p style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.16em", color: "var(--text-secondary)", marginBottom: "1rem" }}>
-                  Holdings at a Glance
+                <h2 style={{ fontFamily: "var(--font-display)", fontSize: "1.85rem", lineHeight: 1.25, fontWeight: 700, marginBottom: "1rem", letterSpacing: "-0.035em", color: "var(--text-primary)" }}>
+                  Synthesize library holdings in seconds.
+                </h2>
+                <p style={{ fontSize: "0.875rem", lineHeight: 1.75, color: "var(--text-secondary)", marginBottom: "2rem" }}>
+                  OnlyBooks connects research papers, theses, and course materials into concise, citation-backed explanations.
                 </p>
-                {holdingsStats.map(([val, label], i) => (
-                  <div
-                    key={label}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "baseline",
-                      padding: "0.75rem 0",
-                      borderBottom: i === holdingsStats.length - 1 ? "none" : "1px solid var(--border-light)",
-                    }}
-                  >
-                    <span style={{ fontSize: "1rem", fontWeight: 600, color: "var(--text-primary)" }}>{val}</span>
-                    <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>{label}</span>
+
+                {/* Stat Cards */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+                  <p style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "0.25rem", opacity: 0.7 }}>
+                    Holdings at a Glance
+                  </p>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.6rem" }}>
+                    {holdingsStats.map(({ value, label, icon }) => (
+                      <div key={label} className="stat-card">
+                        <span style={{ fontSize: "1.1rem" }}>{icon}</span>
+                        <span style={{ fontSize: "1rem", fontWeight: 700, color: "var(--text-primary)", letterSpacing: "-0.02em" }}>{value}</span>
+                        <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", lineHeight: 1.3 }}>{label}</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </div>
               </Reveal>
             </div>
 
-            {/* Right — search */}
+            {/* ── Right Column ── */}
             <div className="col-span-2">
-              <Reveal delay={0.2}>
-              <div className="glass-panel" style={{ padding: "3rem", marginBottom: "3rem" }}>
-                <p style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.16em", color: "var(--text-primary)", marginBottom: "1.5rem", fontWeight: 600 }}>
-                  Begin Your Inquiry
-                </p>
+              <Reveal delay={0.15}>
+                <div className="glass-panel" style={{ padding: "2.5rem", marginBottom: "2.5rem" }}>
+                  <p style={{ fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.14em", color: "var(--text-secondary)", marginBottom: "1.25rem", fontWeight: 700, opacity: 0.75 }}>
+                    Begin Your Inquiry
+                  </p>
 
-                {/* Collection Filter Chips */}
-                <div style={{ display: "flex", gap: "0.75rem", marginBottom: "2rem", flexWrap: "wrap" }}>
-                  {[
-                    { id: "all", label: "All Collections" },
-                    { id: "papers", label: "Research Papers" },
-                    { id: "theses", label: "Theses & Dissertations" },
-                    { id: "reserves", label: "Course Reserves" },
-                  ].map((c) => {
-                    const active = filter === c.id;
-                    return (
+                  {/* Filter Chips */}
+                  <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.5rem", flexWrap: "wrap" }}>
+                    {filters.map((c) => (
                       <button
                         key={c.id}
-                        onClick={() => setFilter(c.id as FilterType)}
-                        className={active ? "btn-primary" : "btn-ghost"}
-                        style={{ padding: "0.5rem 1.25rem", fontSize: "0.75rem", border: active ? "none" : "1px solid rgba(255,255,255,0.8)" }}
+                        onClick={() => setFilter(c.id)}
+                        className={`portal-filter-chip${filter === c.id ? " active" : ""}`}
                       >
                         {c.label}
                       </button>
-                    );
-                  })}
-                </div>
+                    ))}
+                  </div>
 
-                <div style={{ marginBottom: "2rem" }}>
-                  <input
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={onKey}
-                    className="input-minimal"
-                    style={{ width: "100%", fontSize: "1.1rem", padding: "1rem 1.25rem", borderRadius: "12px" }}
-                    placeholder="Inquire about a research topic, thesis, or reading…"
-                  />
-                </div>
+                  {/* Search Bar */}
+                  <div className="search-bar-wrapper" style={{ marginBottom: "1.25rem" }}>
+                    <svg className="search-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                    </svg>
+                    <input
+                      type="text"
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={onKey}
+                      className="search-input"
+                      placeholder="Inquire about a research topic, thesis, or reading…"
+                    />
+                    <button className="search-submit-btn" onClick={submit}>Submit</button>
+                  </div>
 
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
-                    Press <kbd style={{ background: "var(--accent-light)", padding: "2px 6px", borderRadius: "4px", color: "var(--text-primary)" }}>Enter</kbd> to generate synthesis
+                  <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>
+                    Press{" "}
+                    <kbd style={{ background: "var(--accent-light)", padding: "2px 7px", borderRadius: "5px", color: "var(--text-primary)", fontFamily: "var(--font-sans)", fontSize: "0.7rem", border: "1px solid var(--border-strong)" }}>
+                      Enter
+                    </kbd>{" "}
+                    to generate a synthesised response
                   </span>
-                  <button onClick={submit} className="btn-primary" style={{ padding: "0.75rem 2rem", fontSize: "0.9rem" }}>
-                    Submit Inquiry
-                  </button>
                 </div>
-              </div>
 
-              {/* Recent queries */}
-              <div>
-                <p style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.16em", color: "var(--text-secondary)", marginBottom: "1rem" }}>
-                  Recent Inquiries
-                </p>
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                  {recentQueries.slice(0, 4).map((q) => (
-                    <div
-                      key={q.id}
-                      className="glass-panel-hover"
-                      onClick={() => onQuery(q.question, q.collectionFilter || "all")}
-                      style={{
-                        padding: "1rem 1.5rem",
-                        cursor: "pointer",
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        background: "rgba(255, 255, 255, 0.6)",
-                        borderRadius: "16px",
-                        border: "1px solid rgba(255, 255, 255, 0.9)"
-                      }}
-                    >
-                      <span style={{ fontSize: "0.9rem", color: "var(--text-primary)", flex: 1 }}>
-                        {q.question}
-                      </span>
-                      <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginLeft: "1rem", flexShrink: 0 }}>
-                        {q.timestamp}
-                      </span>
-                    </div>
-                  ))}
+                {/* Recent Inquiries */}
+                <div>
+                  <p style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--text-secondary)", marginBottom: "0.75rem", fontWeight: 700, opacity: 0.75 }}>
+                    Recent Inquiries
+                  </p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.45rem" }}>
+                    {recentQueries.slice(0, 4).map((q) => (
+                      <div
+                        key={q.id}
+                        className="recent-q-item"
+                        onClick={() => onQuery(q.question, q.collectionFilter || "all")}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flex: 1, overflow: "hidden" }}>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="var(--text-secondary)" style={{ flexShrink: 0 }}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                          </svg>
+                          <span style={{ fontSize: "0.855rem", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{q.question}</span>
+                        </div>
+                        <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", flexShrink: 0 }}>{q.timestamp}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
               </Reveal>
             </div>
           </div>
 
-          {/* ── Recent Acquisitions ── */}
+          {/* ── Acquisitions ── */}
           <div style={{ paddingTop: "2rem", borderTop: "1px solid var(--border-light)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "2rem" }}>
-              <p style={{ fontSize: "0.85rem", textTransform: "uppercase", letterSpacing: "0.16em", color: "var(--text-primary)", fontWeight: 600 }}>
-                Curated Holdings & Trending Dissertations
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "1.75rem" }}>
+              <p style={{ fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--text-primary)", fontWeight: 700 }}>
+                Curated Holdings &amp; Trending Dissertations
               </p>
-              <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
-                Showing {displayAcquisitions.length} resources
+              <p style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>
+                {displayAcquisitions.length} resources
               </p>
             </div>
 
-            {/* Masonry grid */}
-            <div style={{ columns: "3", columnGap: "1.5rem" }}>
+            <div style={{ columns: "3", columnGap: "1.25rem" }}>
               {displayAcquisitions.map((item, index) => (
-                <Reveal key={item.id} delay={0.1 * (index % 3)}>
-                <div
-                  className="glass-panel glass-panel-hover"
-                  onClick={() => onQuery(item.title)}
-                  style={{
-                    breakInside: "avoid",
-                    marginBottom: "1.5rem",
-                    padding: "1.5rem",
-                    cursor: "pointer",
-                  }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-                    <span style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.14em", color: "var(--text-secondary)", fontWeight: 600 }}>
-                      {item.field}
-                    </span>
-                    <span style={{ fontSize: "0.6rem", fontWeight: 600, color: "var(--text-primary)", border: "1px solid var(--border-strong)", padding: "0.2rem 0.5rem", borderRadius: "12px", background: "var(--accent-light)" }}>
-                      {item.collectionType}
-                    </span>
-                  </div>
+                <Reveal key={item.id} delay={0.06 * (index % 3)}>
+                  <div className="acq-card" onClick={() => onQuery(item.title)}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.75rem", gap: "0.5rem" }}>
+                      <span style={{ fontSize: "0.62rem", textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--text-secondary)", fontWeight: 700, lineHeight: 1.3 }}>
+                        {item.field}
+                      </span>
+                      <span className="chip" style={{ flexShrink: 0 }}>{item.collectionType}</span>
+                    </div>
 
-                  <p style={{ fontFamily: "var(--font-display)", fontSize: "1.1rem", lineHeight: 1.4, color: "var(--text-primary)", fontWeight: 500, marginBottom: "1rem" }}>
-                    {item.title}
-                  </p>
+                    <p style={{ fontFamily: "var(--font-serif)", fontSize: "1rem", lineHeight: 1.45, color: "var(--text-primary)", fontWeight: 500, marginBottom: "1rem", marginTop: 0 }}>
+                      {item.title}
+                    </p>
 
-                  <div style={{ borderTop: "1px solid var(--border-light)", paddingTop: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>{item.author}</span>
-                    <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>
-                      {item.callNumber} · {item.year}
-                    </span>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--border-light)", paddingTop: "0.85rem" }}>
+                      <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)", fontWeight: 500 }}>{item.author}</span>
+                      <span style={{ fontSize: "0.68rem", color: "var(--text-secondary)", opacity: 0.7 }}>{item.callNumber} · {item.year}</span>
+                    </div>
                   </div>
-                </div>
                 </Reveal>
               ))}
             </div>
@@ -322,9 +417,7 @@ export default function ResearchPortal({ user, onQuery, recentQueries, onSignOut
       <DepositModal
         isOpen={isDepositOpen}
         onClose={() => setIsDepositOpen(false)}
-        onSuccess={() => {
-          handleRefreshCatalog();
-        }}
+        onSuccess={() => { handleRefreshCatalog(); }}
       />
     </div>
   );
@@ -335,24 +428,22 @@ function NavLink({ children, onClick, active }: { children: React.ReactNode; onC
   return (
     <a
       href="#"
-      onClick={(e) => {
-        e.preventDefault();
-        if (onClick) onClick();
-      }}
+      onClick={(e) => { e.preventDefault(); if (onClick) onClick(); }}
       onMouseOver={() => setHovered(true)}
       onMouseOut={() => setHovered(false)}
       style={{
-        fontSize: "0.85rem",
-        fontWeight: active ? 600 : 400,
+        fontSize: "0.82rem",
+        fontWeight: active ? 600 : 500,
         color: active || hovered ? "var(--text-primary)" : "var(--text-secondary)",
         textDecoration: "none",
-        transition: "color 0.2s",
-        position: "relative"
+        transition: "color 0.18s",
+        position: "relative",
+        letterSpacing: "0.005em",
       }}
     >
       {children}
       {active && (
-        <div style={{ position: "absolute", bottom: "-4px", left: "0", width: "100%", height: "2px", background: "var(--accent)", borderRadius: "2px" }} />
+        <span className="nav-active-dot" />
       )}
     </a>
   );
