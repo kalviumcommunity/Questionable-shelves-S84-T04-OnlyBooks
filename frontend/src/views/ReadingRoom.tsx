@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import type { Citation, DocumentRecord } from "../data/libraryKnowledge";
 import { readingRoomApi, ReadingRoomResponse, RawPageResponse } from "../services/api";
+import ExportBibliographyModal from "../components/ExportBibliographyModal";
 
 interface Props {
   citation: Citation;
@@ -211,6 +212,47 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
   const [loadingDoc, setLoadingDoc] = useState(false);
   const [sectionIdx, setSectionIdx] = useState(0);
   const [focusMode, setFocusMode] = useState(false);
+  const [isCiteOpen, setIsCiteOpen] = useState(false);
+
+  // In-document deep search & passage quotes
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [copiedHighlight, setCopiedHighlight] = useState(false);
+
+  function handleCopyQuote(quoteText: string, pageRef?: string) {
+    const pageStr = pageRef || citation.page;
+    const formatted = `"${quoteText.trim()}" — ${citation.author} (${citation.year}), ${pageStr} [${citation.callNumber}]`;
+    navigator.clipboard.writeText(formatted);
+    setCopiedHighlight(true);
+    setTimeout(() => setCopiedHighlight(false), 2000);
+  }
+
+  function renderHighlightedText(text: string, query: string) {
+    if (!query || !query.trim()) return text;
+    const q = query.trim();
+    const parts = text.split(new RegExp(`(${q.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&")})`, "gi"));
+    return (
+      <>
+        {parts.map((part, i) =>
+          part.toLowerCase() === q.toLowerCase() ? (
+            <mark
+              key={i}
+              style={{
+                backgroundColor: "rgba(250, 204, 21, 0.45)",
+                color: "inherit",
+                padding: "1px 3px",
+                borderRadius: "2px",
+              }}
+            >
+              {part}
+            </mark>
+          ) : (
+            part
+          )
+        )}
+      </>
+    );
+  }
 
   // Raw leaf OCR transcript mode
   const [rawMode, setRawMode] = useState(false);
@@ -331,6 +373,19 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
 
   const section = doc.sections[sectionIdx] ?? doc.sections[0];
 
+  const matchCount = useMemo(() => {
+    if (!searchQuery.trim() || !section) return 0;
+    const q = searchQuery.toLowerCase().trim();
+    let count = 0;
+    for (const b of section.blocks) {
+      if ("text" in b && b.text) {
+        const matches = b.text.toLowerCase().split(q).length - 1;
+        count += matches;
+      }
+    }
+    return count;
+  }, [searchQuery, section]);
+
   const viewer = (
     <div
       style={{
@@ -341,6 +396,18 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
         color: "var(--text-primary)"
       }}
     >
+      {/* ── Reading Progress Bar ── */}
+      <div style={{ width: "100%", height: "2px", background: "var(--border-light)" }}>
+        <div
+          style={{
+            height: "100%",
+            width: `${Math.min(100, Math.max(3, (activePage / (doc?.totalPages || 1)) * 100))}%`,
+            background: "var(--accent-primary, #b45309)",
+            transition: "width 0.3s ease",
+          }}
+        />
+      </div>
+
       {/* ── Viewer top bar ── */}
       <div
         style={{
@@ -407,6 +474,62 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
             onClick={toggleRawMode}
           >
             {rawMode ? "Formatted" : "Raw Leaf"}
+          </IconBtn>
+
+          {searchOpen ? (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.3rem",
+                background: "var(--bg-primary)",
+                border: "1px solid var(--border-strong)",
+                borderRadius: "14px",
+                padding: "2px 8px",
+              }}
+            >
+              <span style={{ fontSize: "0.7rem", opacity: 0.6 }}>🔍</span>
+              <input
+                type="text"
+                autoFocus
+                placeholder="Search chapter..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  width: 105,
+                  fontSize: "0.7rem",
+                  background: "transparent",
+                  border: "none",
+                  outline: "none",
+                  color: "var(--text-primary)",
+                }}
+              />
+              {searchQuery && (
+                <span style={{ fontSize: "0.6rem", color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+                  {matchCount} match{matchCount !== 1 ? "es" : ""}
+                </span>
+              )}
+              <button
+                onClick={() => {
+                  setSearchQuery("");
+                  setSearchOpen(false);
+                }}
+                style={{ background: "none", border: "none", cursor: "pointer", fontSize: "0.75rem", color: "var(--text-secondary)", padding: 0 }}
+              >
+                ✕
+              </button>
+            </div>
+          ) : (
+            <IconBtn title="Search keywords within this chapter" onClick={() => setSearchOpen(true)}>
+              🔍 Search
+            </IconBtn>
+          )}
+
+          <IconBtn
+            title="Cite or export reference (BibTeX, APA, MLA, Chicago)"
+            onClick={() => setIsCiteOpen(true)}
+          >
+            Cite
           </IconBtn>
 
           <IconBtn
@@ -713,7 +836,7 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
                               marginBottom: 0,
                             }}
                           >
-                            {block.text}
+                            {renderHighlightedText(block.text, searchQuery)}
                           </h3>
                         );
                       }
@@ -730,7 +853,7 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
                               hyphens: "auto",
                             }}
                           >
-                            {block.text}
+                            {renderHighlightedText(block.text, searchQuery)}
                           </p>
                         );
                       }
@@ -751,7 +874,7 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
                               color: "var(--text-primary)",
                             }}
                           >
-                            {block.text}
+                            {renderHighlightedText(block.text, searchQuery)}
                           </blockquote>
                         );
                       }
@@ -790,6 +913,27 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
                               >
                                 {block.pageRef}
                               </span>
+
+                              <button
+                                onClick={() => handleCopyQuote(block.text, block.pageRef)}
+                                className="btn-ghost"
+                                style={{
+                                  marginLeft: "auto",
+                                  padding: "2px 8px",
+                                  fontSize: "0.62rem",
+                                  borderRadius: "4px",
+                                  border: "1px solid var(--border-subtle)",
+                                  background: copiedHighlight ? "var(--text-primary)" : "transparent",
+                                  color: copiedHighlight ? "var(--bg-primary)" : "var(--text-secondary)",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "0.3rem",
+                                  cursor: "pointer",
+                                }}
+                                title="Copy exact passage quote with scholarly citation"
+                              >
+                                {copiedHighlight ? "✓ Copied Quote" : "📋 Copy Excerpt"}
+                              </button>
                             </div>
                             <div
                               style={{
@@ -810,7 +954,7 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
                                   hyphens: "auto",
                                 }}
                               >
-                                {block.text}
+                                {renderHighlightedText(block.text, searchQuery)}
                               </p>
                             </div>
                           </div>
@@ -869,11 +1013,17 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
     </div>
   );
 
-  if (focusMode) {
-    return <div className="focus-overlay">{viewer}</div>;
-  }
-
-  return viewer;
+  return (
+    <>
+      {focusMode ? <div className="focus-overlay">{viewer}</div> : viewer}
+      <ExportBibliographyModal
+        isOpen={isCiteOpen}
+        onClose={() => setIsCiteOpen(false)}
+        citations={[citation]}
+        inquiryTitle={citation.title}
+      />
+    </>
+  );
 }
 
 // ── Tiny helpers ───────────────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, KeyboardEvent } from "react";
+import { useState, useEffect, KeyboardEvent } from "react";
 import { ThemeToggle, type Query, type User } from "../App";
 import { ACQUISITIONS } from "../data/libraryKnowledge";
 import { catalogApi, CatalogMetrics, CatalogDocument } from "../services/api";
@@ -20,13 +20,15 @@ interface Props {
 export default function ResearchPortal({ user, onQuery, recentQueries, onSignOut, onOpenGuide }: Props) {
   const [input, setInput] = useState("");
   const [filter, setFilter] = useState<FilterType>("all");
+  const [catalogSearch, setCatalogSearch] = useState("");
+  const [sortBy, setSortBy] = useState<string>("newest");
   const [metrics, setMetrics] = useState<CatalogMetrics | null>(null);
   const [liveAcquisitions, setLiveAcquisitions] = useState<CatalogDocument[]>([]);
   const [isDepositOpen, setIsDepositOpen] = useState(false);
 
   function handleRefreshCatalog() {
     catalogApi.getMetrics().then((m) => setMetrics(m)).catch(() => {});
-    catalogApi.getAcquisitions(filter).then((res) => {
+    catalogApi.getAcquisitions(filter, catalogSearch, sortBy).then((res) => {
       if (res.items && res.items.length > 0) setLiveAcquisitions(res.items);
     }).catch(() => {});
   }
@@ -36,10 +38,10 @@ export default function ResearchPortal({ user, onQuery, recentQueries, onSignOut
   }, []);
 
   useEffect(() => {
-    catalogApi.getAcquisitions(filter).then((res) => {
-      if (res.items && res.items.length > 0) setLiveAcquisitions(res.items);
+    catalogApi.getAcquisitions(filter, catalogSearch, sortBy).then((res) => {
+      if (res.items) setLiveAcquisitions(res.items);
     }).catch(() => {});
-  }, [filter]);
+  }, [filter, catalogSearch, sortBy]);
 
   function submit() {
     const trimmed = input.trim();
@@ -378,13 +380,66 @@ export default function ResearchPortal({ user, onQuery, recentQueries, onSignOut
 
           {/* ── Acquisitions ── */}
           <div style={{ paddingTop: "2rem", borderTop: "1px solid var(--border-light)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "1.75rem" }}>
-              <p style={{ fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--text-primary)", fontWeight: 700 }}>
-                Curated Holdings &amp; Trending Dissertations
-              </p>
-              <p style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>
-                {displayAcquisitions.length} resources
-              </p>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem", flexWrap: "wrap", gap: "1rem" }}>
+              <div>
+                <p style={{ fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--text-primary)", fontWeight: 700, margin: 0 }}>
+                  Curated Holdings &amp; Trending Dissertations
+                </p>
+                <p style={{ fontSize: "0.72rem", color: "var(--text-secondary)", margin: "0.2rem 0 0 0" }}>
+                  {displayAcquisitions.length} indexed manuscript{displayAcquisitions.length !== 1 ? "s" : ""}
+                </p>
+              </div>
+
+              {/* Filtering and Sorting controls */}
+              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.3rem", background: "var(--bg-secondary)", border: "1px solid var(--border-strong)", borderRadius: "8px", padding: "0.25rem 0.6rem" }}>
+                  <span style={{ fontSize: "0.75rem", opacity: 0.6 }}>🔍</span>
+                  <input
+                    type="text"
+                    placeholder="Search holdings..."
+                    value={catalogSearch}
+                    onChange={(e) => setCatalogSearch(e.target.value)}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      outline: "none",
+                      fontSize: "0.78rem",
+                      color: "var(--text-primary)",
+                      width: "140px",
+                    }}
+                  />
+                  {catalogSearch && (
+                    <button
+                      onClick={() => setCatalogSearch("")}
+                      style={{ background: "none", border: "none", cursor: "pointer", fontSize: "0.75rem", color: "var(--text-secondary)", padding: 0 }}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  style={{
+                    background: "var(--bg-secondary)",
+                    border: "1px solid var(--border-strong)",
+                    borderRadius: "8px",
+                    padding: "0.3rem 0.6rem",
+                    fontSize: "0.78rem",
+                    color: "var(--text-primary)",
+                    outline: "none",
+                    cursor: "pointer",
+                  }}
+                  title="Sort catalog holdings"
+                >
+                  <option value="newest">Sort: Newest</option>
+                  <option value="oldest">Sort: Oldest</option>
+                  <option value="title">Sort: Title (A-Z)</option>
+                  <option value="author">Sort: Author (A-Z)</option>
+                  <option value="pages">Sort: Page Count</option>
+                </select>
+              </div>
             </div>
 
             <div style={{ columns: "3", columnGap: "1.25rem" }}>

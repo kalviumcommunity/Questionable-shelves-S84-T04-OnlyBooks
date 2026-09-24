@@ -47,11 +47,14 @@ async def get_catalog_metrics(db: AsyncSession = Depends(get_db)):
 async def get_acquisitions(
     collection: Optional[str] = Query(default="all", description="Collection filter: all, papers, theses, reserves, press"),
     search: Optional[str] = Query(default=None, description="Search keyword in title, author, field, or call number"),
+    sort_by: Optional[str] = Query(default="newest", description="Sorting criteria: newest, oldest, title, author, pages"),
+    year_from: Optional[str] = Query(default=None, description="Filter documents published from year"),
+    year_to: Optional[str] = Query(default=None, description="Filter documents published up to year"),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
 ):
-    """Retrieve catalog acquisitions with collection filtering, search, and pagination."""
+    """Retrieve catalog acquisitions with collection filtering, search, year range, and sorting."""
     query = select(Document, Collection.name.label("collection_name")).join(
         Collection, Document.collection_id == Collection.id, isouter=True
     )
@@ -70,13 +73,31 @@ async def get_acquisitions(
             )
         )
 
+    if year_from and year_from.strip():
+        query = query.where(Document.year >= year_from.strip())
+
+    if year_to and year_to.strip():
+        query = query.where(Document.year <= year_to.strip())
+
     # Count total matching
     count_query = select(func.count()).select_from(query.subquery())
     total_res = await db.execute(count_query)
     total = total_res.scalar_one_or_none() or 0
 
-    # Paginate and order by created_at descending
-    query = query.order_by(Document.created_at.desc()).offset(offset).limit(limit)
+    # Sorting
+    if sort_by == "oldest":
+        query = query.order_by(Document.year.asc(), Document.created_at.asc())
+    elif sort_by == "title":
+        query = query.order_by(Document.title.asc())
+    elif sort_by == "author":
+        query = query.order_by(Document.author.asc())
+    elif sort_by == "pages":
+        query = query.order_by(Document.total_pages.desc())
+    else:  # default: newest
+        query = query.order_by(Document.year.desc(), Document.created_at.desc())
+
+    # Paginate
+    query = query.offset(offset).limit(limit)
     result = await db.execute(query)
     rows = result.all()
 

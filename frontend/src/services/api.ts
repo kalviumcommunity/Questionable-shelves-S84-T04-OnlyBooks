@@ -178,10 +178,23 @@ export const catalogApi = {
     return request<CatalogMetrics>("/catalog/metrics", { method: "GET" });
   },
 
-  async getAcquisitions(collection?: string, search?: string): Promise<AcquisitionsResponse> {
+  async getAcquisitions(
+    collection?: string,
+    search?: string,
+    sortBy?: string,
+    yearFrom?: string,
+    yearTo?: string,
+    limit?: number,
+    offset?: number
+  ): Promise<AcquisitionsResponse> {
     const params = new URLSearchParams();
     if (collection && collection !== "all") params.append("collection", collection);
     if (search && search.trim()) params.append("search", search.trim());
+    if (sortBy) params.append("sort_by", sortBy);
+    if (yearFrom && yearFrom.trim()) params.append("year_from", yearFrom.trim());
+    if (yearTo && yearTo.trim()) params.append("year_to", yearTo.trim());
+    if (limit) params.append("limit", limit.toString());
+    if (offset) params.append("offset", offset.toString());
     const query = params.toString() ? `?${params.toString()}` : "";
     return request<AcquisitionsResponse>(`/catalog/acquisitions${query}`, { method: "GET" });
   },
