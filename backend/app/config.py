@@ -1,6 +1,6 @@
 import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import List
+from typing import List, Optional
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "OnlyBooks University Library Archive"
@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     
     # SQLite async database location
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./data/onlybooks.db")
+
+    # Gemini LLM configuration
+    GEMINI_API_KEY: Optional[str] = os.getenv("GEMINI_API_KEY", None)
+    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
     
     # CORS origins
     CORS_ORIGINS: List[str] = [

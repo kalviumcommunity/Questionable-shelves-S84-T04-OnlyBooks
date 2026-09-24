@@ -412,11 +412,11 @@ The React frontend maintains its design:
 
 Each phase below is structured as an isolated, fully tested milestone suitable for dedicated feature branches and PRs:
 
-### Phase 7: Live Gemini LLM Synthesis Engine (PR 1)
-- [ ] Add Gemini 1.5 Flash / Pro API client support in `backend/app/services/synthesizer.py`.
-- [ ] Support `GEMINI_API_KEY` configuration with graceful automatic fallback to the deterministic academic generator when offline or unconfigured.
-- [ ] Implement SSE token-by-token streaming from Gemini with dynamic superscript footnote insertion.
-- [ ] Add unit tests verifying Gemini prompt construction, fallback safety, and guardrail validation.
+### Phase 7: Live Gemini LLM Synthesis Engine (PR 1) (Complete)
+- [x] Add Gemini 1.5 Flash / Pro API client support in `backend/app/services/synthesizer.py`.
+- [x] Support `GEMINI_API_KEY` configuration with graceful automatic fallback to the deterministic academic generator when offline or unconfigured.
+- [x] Implement SSE token-by-token streaming from Gemini with dynamic superscript footnote insertion.
+- [x] Add unit tests verifying Gemini prompt construction, fallback safety, and guardrail validation (`backend/tests/test_gemini_synthesis.py`).
 
 ### Phase 8: Academic Citation & Bibliography Exporter (PR 2)
 - [ ] Add multi-format citation generator utility supporting BibTeX, APA 7th, MLA 9th, and Chicago styles.
