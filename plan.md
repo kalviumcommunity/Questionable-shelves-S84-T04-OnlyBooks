@@ -429,8 +429,8 @@ Each phase below is structured as an isolated, fully tested milestone suitable f
 - [x] Add highlight coordinates toggle and direct page quote copying with formatted academic reference.
 - [x] Support chapter quick-jumping with reading progress indicator.
 
-### Phase 10: Catalog Advanced Filtering, Sorting & Search Analytics (PR 4)
-- [ ] Add publication year range filtering, author search, and multi-field query parsing in `catalog.py`.
-- [ ] Add sorting (newest, call number, page count, relevance) in `ResearchPortal.tsx`.
-- [ ] Update catalog metrics to reflect dynamic query distributions and holdings growth.
+### Phase 10: Catalog Advanced Filtering, Sorting & Search Analytics (PR 4) (Complete)
+- [x] Add publication year range filtering, author search, and multi-field query parsing in `catalog.py`.
+- [x] Add sorting (newest, call number, page count, relevance) in `ResearchPortal.tsx`.
+- [x] Update catalog metrics and search result counts to reflect dynamic query distributions.
 
