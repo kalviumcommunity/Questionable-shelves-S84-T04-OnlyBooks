@@ -424,10 +424,10 @@ Each phase below is structured as an isolated, fully tested milestone suitable f
 - [x] Add downloadable `.bib` file export in `ReadingRoom.tsx` and bibliography cards.
 - [x] Provide toast notifications confirming citation copy to clipboard.
 
-### Phase 9: Reading Room Deep Search & Passage Annotations (PR 3)
-- [ ] Implement in-document keyword jump and search within the Reading Room.
-- [ ] Add highlight coordinates toggle and direct page quote copying with formatted academic reference.
-- [ ] Support chapter quick-jumping with reading progress indicator.
+### Phase 9: Reading Room Deep Search & Passage Annotations (PR 3) (Complete)
+- [x] Implement in-document keyword jump and search within the Reading Room (`ReadingRoom.tsx`).
+- [x] Add highlight coordinates toggle and direct page quote copying with formatted academic reference.
+- [x] Support chapter quick-jumping with reading progress indicator.
 
 ### Phase 10: Catalog Advanced Filtering, Sorting & Search Analytics (PR 4)
 - [ ] Add publication year range filtering, author search, and multi-field query parsing in `catalog.py`.
