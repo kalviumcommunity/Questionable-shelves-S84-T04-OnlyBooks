@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import type { Citation, DocumentRecord } from "../data/libraryKnowledge";
 import { readingRoomApi, ReadingRoomResponse, RawPageResponse } from "../services/api";
+import ExportBibliographyModal from "../components/ExportBibliographyModal";
 
 interface Props {
   citation: Citation;
@@ -211,6 +212,7 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
   const [loadingDoc, setLoadingDoc] = useState(false);
   const [sectionIdx, setSectionIdx] = useState(0);
   const [focusMode, setFocusMode] = useState(false);
+  const [isCiteOpen, setIsCiteOpen] = useState(false);
 
   // Raw leaf OCR transcript mode
   const [rawMode, setRawMode] = useState(false);
@@ -407,6 +409,13 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
             onClick={toggleRawMode}
           >
             {rawMode ? "Formatted" : "Raw Leaf"}
+          </IconBtn>
+
+          <IconBtn
+            title="Cite or export reference (BibTeX, APA, MLA, Chicago)"
+            onClick={() => setIsCiteOpen(true)}
+          >
+            Cite
           </IconBtn>
 
           <IconBtn
@@ -869,11 +878,17 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
     </div>
   );
 
-  if (focusMode) {
-    return <div className="focus-overlay">{viewer}</div>;
-  }
-
-  return viewer;
+  return (
+    <>
+      {focusMode ? <div className="focus-overlay">{viewer}</div> : viewer}
+      <ExportBibliographyModal
+        isOpen={isCiteOpen}
+        onClose={() => setIsCiteOpen(false)}
+        citations={[citation]}
+        inquiryTitle={citation.title}
+      />
+    </>
+  );
 }
 
 // ── Tiny helpers ───────────────────────────────────────────────────────────

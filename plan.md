@@ -418,11 +418,11 @@ Each phase below is structured as an isolated, fully tested milestone suitable f
 - [x] Implement SSE token-by-token streaming from Gemini with dynamic superscript footnote insertion.
 - [x] Add unit tests verifying Gemini prompt construction, fallback safety, and guardrail validation (`backend/tests/test_gemini_synthesis.py`).
 
-### Phase 8: Academic Citation & Bibliography Exporter (PR 2)
-- [ ] Add multi-format citation generator utility supporting BibTeX, APA 7th, MLA 9th, and Chicago styles.
-- [ ] Add "Export Citations" modal and "Copy Citation" quick action in `SynthesisView.tsx`.
-- [ ] Add downloadable `.bib` file export in `ReadingRoom.tsx` and bibliography cards.
-- [ ] Provide toast notifications confirming citation copy to clipboard.
+### Phase 8: Academic Citation & Bibliography Exporter (PR 2) (Complete)
+- [x] Add multi-format citation generator utility supporting BibTeX, APA 7th, MLA 9th, and Chicago styles (`frontend/src/utils/citationFormatter.ts`).
+- [x] Add "Export Citations" modal (`ExportBibliographyModal.tsx`) and "Copy Citation" quick action in `SynthesisView.tsx`.
+- [x] Add downloadable `.bib` file export in `ReadingRoom.tsx` and bibliography cards.
+- [x] Provide toast notifications confirming citation copy to clipboard.
 
 ### Phase 9: Reading Room Deep Search & Passage Annotations (PR 3)
 - [ ] Implement in-document keyword jump and search within the Reading Room.
