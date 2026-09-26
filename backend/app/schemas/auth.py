@@ -8,6 +8,13 @@ class UserRegister(BaseModel):
     affiliation: Optional[str] = "University Scholar"
     role: Optional[str] = None
 
+class SendOTPRequest(BaseModel):
+    email: EmailStr
+
+class VerifyOTPRequest(BaseModel):
+    email: EmailStr
+    otp: str
+
 class UserLogin(BaseModel):
     email: EmailStr
     password: str

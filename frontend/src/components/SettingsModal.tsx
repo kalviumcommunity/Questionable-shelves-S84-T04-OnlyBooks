@@ -1,6 +1,14 @@
-﻿import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { ReactElement, ReactNode } from "react";
 import { User } from "../App";
+import {
+  loadAppSettings,
+  saveAppSettings,
+  applyAppSettings,
+  getUserAvatar,
+  AppSettings,
+} from "../utils/userPreferences";
+import AvatarModal from "./AvatarModal";
 
 interface Props {
   user: User;
@@ -23,14 +31,14 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
         height: "26px",
         borderRadius: "9999px",
         border: "none",
-        background: checked ? "var(--accent)" : "rgba(0,0,0,0.15)",
+        background: checked ? "#2563eb" : "rgba(0,0,0,0.15)",
         cursor: "pointer",
         position: "relative",
-        transition: "background 0.3s cubic-bezier(0.4,0,0.2,1)",
+        transition: "background 0.25s cubic-bezier(0.4,0,0.2,1), box-shadow 0.25s ease",
         flexShrink: 0,
         padding: 0,
         outline: "none",
-        boxShadow: checked ? "0 0 0 3px var(--accent-light)" : "none",
+        boxShadow: checked ? "0 0 0 3px rgba(37, 99, 235, 0.22)" : "none",
       }}
     >
       <span
@@ -42,8 +50,8 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
           height: "18px",
           borderRadius: "50%",
           background: "#fff",
-          transition: "left 0.3s cubic-bezier(0.4,0,0.2,1)",
-          boxShadow: "0 1px 6px rgba(0,0,0,0.25)",
+          transition: "left 0.25s cubic-bezier(0.4,0,0.2,1)",
+          boxShadow: "0 1px 4px rgba(0,0,0,0.25)",
         }}
       />
     </button>
@@ -105,13 +113,13 @@ function SectionLabel({ children }: { children: ReactNode }) {
   return (
     <p
       style={{
-        margin: "0 0 0.1rem 0",
         fontSize: "0.68rem",
         textTransform: "uppercase",
-        letterSpacing: "0.11em",
-        fontWeight: 700,
+        letterSpacing: "0.1em",
         color: "var(--text-secondary)",
-        opacity: 0.65,
+        fontWeight: 700,
+        margin: "1.1rem 0 0.4rem",
+        opacity: 0.75,
       }}
     >
       {children}
@@ -123,23 +131,23 @@ function SectionLabel({ children }: { children: ReactNode }) {
 
 const Icons = {
   appearance: (
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" d="M4.098 19.902a3.75 3.75 0 0 0 5.304 0l6.401-6.402M6.75 21A3.75 3.75 0 0 1 3 17.25V4.125C3 3.504 3.504 3 4.125 3h5.25c.621 0 1.125.504 1.125 1.125v4.072M6.75 21a3.75 3.75 0 0 0 3.75-3.75V8.197M6.75 21h13.125c.621 0 1.125-.504 1.125-1.125v-5.25c0-.621-.504-1.125-1.125-1.125h-4.072M10.5 8.197l2.88-2.88c.438-.439 1.15-.439 1.59 0l3.712 3.713c.44.44.44 1.152 0 1.59l-2.879 2.88M6.75 17.25h.008v.008H6.75v-.008Z" />
     </svg>
   ),
   notifications: (
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
     </svg>
   ),
   account: (
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
     </svg>
   ),
   privacy: (
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
     </svg>
   ),
   compact: (
@@ -188,14 +196,44 @@ const Icons = {
 
 export default function SettingsModal({ user, onClose, onSignOut }: Props) {
   const [activeTab, setActiveTab] = useState<SettingsTab>("appearance");
-  const [compactMode, setCompactMode] = useState(false);
-  const [reducedMotion, setReducedMotion] = useState(false);
-  const [fontScale, setFontScale] = useState<"sm" | "md" | "lg">("md");
-  const [emailDigest, setEmailDigest] = useState(true);
-  const [newAcquisitions, setNewAcquisitions] = useState(true);
-  const [researchAlerts, setResearchAlerts] = useState(false);
-  const [searchHistory, setSearchHistory] = useState(true);
-  const [analyticsOptIn, setAnalyticsOptIn] = useState(true);
+  const [settings, setSettings] = useState<AppSettings>(() => loadAppSettings());
+  const [avatar, setAvatar] = useState<string | null>(() => getUserAvatar(user.email));
+  const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
+  const [saveToast, setSaveToast] = useState(false);
+  const [historyCleared, setHistoryCleared] = useState(false);
+
+  useEffect(() => {
+    const handleAvatarChange = (e: any) => {
+      if (e.detail?.email === user.email) {
+        setAvatar(e.detail.avatar);
+      }
+    };
+    window.addEventListener("onlybooks-avatar-changed", handleAvatarChange);
+    return () => window.removeEventListener("onlybooks-avatar-changed", handleAvatarChange);
+  }, [user.email]);
+
+  function updateSetting<K extends keyof AppSettings>(key: K, value: AppSettings[K]) {
+    const next = { ...settings, [key]: value };
+    setSettings(next);
+    applyAppSettings(next);
+  }
+
+  function handleSave() {
+    saveAppSettings(settings);
+    setSaveToast(true);
+    setTimeout(() => {
+      setSaveToast(false);
+      onClose();
+    }, 600);
+  }
+
+  function handleClearHistory() {
+    try {
+      localStorage.removeItem("onlybooks_inquiry_history");
+      setHistoryCleared(true);
+      setTimeout(() => setHistoryCleared(false), 3000);
+    } catch {}
+  }
 
   const tabs: { id: SettingsTab; label: string }[] = [
     { id: "appearance", label: "Appearance" },
@@ -214,47 +252,65 @@ export default function SettingsModal({ user, onClose, onSignOut }: Props) {
         .s-tab {
           display: flex;
           align-items: center;
-          gap: 0.55rem;
+          gap: 0.65rem;
           width: 100%;
           text-align: left;
-          padding: 0.6rem 0.8rem;
-          font-size: 0.825rem;
+          padding: 0.65rem 0.85rem;
+          font-size: 0.835rem;
           font-weight: 500;
           color: var(--text-secondary);
           background: transparent;
-          border: none;
-          border-radius: 10px;
+          border: 1.5px solid transparent;
+          border-radius: 12px;
           cursor: pointer;
-          transition: all 0.18s ease;
+          transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
           letter-spacing: 0.01em;
+          position: relative;
         }
-        .s-tab:hover { background: var(--accent-light); color: var(--text-primary); }
+        .s-tab:hover {
+          background: rgba(15, 23, 42, 0.04);
+          color: var(--text-primary);
+        }
         .s-tab.active {
-          background: var(--accent);
-          color: var(--bg-primary);
-          box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+          background: #FFFFFF;
+          color: #0F172A;
+          font-weight: 600;
+          border-color: rgba(15, 23, 42, 0.1);
+          box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
         }
-        .s-tab svg { width: 15px; height: 15px; flex-shrink: 0; opacity: 0.8; }
-        .s-tab.active svg { opacity: 1; }
+        .s-tab.active::before {
+          content: '';
+          position: absolute;
+          left: 4px;
+          top: 8px;
+          bottom: 8px;
+          width: 3.5px;
+          border-radius: 4px;
+          background: #2563eb;
+        }
+        .s-tab svg { width: 16px; height: 16px; flex-shrink: 0; opacity: 0.65; transition: all 0.18s ease; }
+        .s-tab:hover svg { opacity: 0.9; }
+        .s-tab.active svg { opacity: 1; color: #2563eb; }
         .fs-btn {
-          width: 40px; height: 30px;
+          width: 44px; height: 32px;
           border-radius: 8px;
           border: 1.5px solid var(--border-strong);
-          background: transparent;
+          background: rgba(255, 255, 255, 0.7);
           color: var(--text-secondary);
-          cursor: pointer;
           font-size: 0.78rem;
-          font-family: var(--font-sans);
           font-weight: 600;
+          font-family: var(--font-sans);
+          cursor: pointer;
           transition: all 0.18s ease;
           letter-spacing: 0.03em;
         }
-        .fs-btn:hover { border-color: var(--text-secondary); color: var(--text-primary); }
+        .fs-btn:hover { border-color: #2563eb; color: #2563eb; background: #ffffff; }
         .fs-btn.active {
-          background: var(--accent);
-          color: var(--bg-primary);
-          border-color: var(--accent);
-          box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+          background: #eff6ff;
+          color: #1d4ed8;
+          border-color: #3b82f6;
+          box-shadow: 0 2px 8px rgba(59, 130, 246, 0.18);
+          font-weight: 700;
         }
         .s-content::-webkit-scrollbar { width: 4px; }
         .s-content::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
@@ -313,8 +369,9 @@ export default function SettingsModal({ user, onClose, onSignOut }: Props) {
       <div
         style={{
           position: "fixed", inset: 0,
-          background: "rgba(0,0,0,0.38)",
-          backdropFilter: "blur(16px)",
+          background: "rgba(15, 23, 42, 0.16)",
+          backdropFilter: "blur(8px)",
+          WebkitBackdropFilter: "blur(8px)",
           display: "flex", alignItems: "center", justifyContent: "center",
           zIndex: 1000, padding: "1rem",
         }}
@@ -322,12 +379,16 @@ export default function SettingsModal({ user, onClose, onSignOut }: Props) {
       >
         {/* Modal Shell */}
         <div
-          className="glass-panel"
           style={{
-            width: "100%", maxWidth: "700px", maxHeight: "88vh",
+            width: "100%", maxWidth: "720px", maxHeight: "88vh",
             display: "flex", flexDirection: "column", overflow: "hidden",
-            animation: "settingsFadeIn 0.28s cubic-bezier(0.16,1,0.3,1) forwards",
-            boxShadow: "0 40px 100px rgba(0,0,0,0.22), inset 0 2px 4px rgba(255,255,255,0.6)",
+            background: "rgba(255, 255, 255, 0.95)",
+            backdropFilter: "blur(24px) saturate(1.4)",
+            WebkitBackdropFilter: "blur(24px) saturate(1.4)",
+            border: "1.5px solid rgba(255, 255, 255, 0.95)",
+            borderRadius: 24,
+            animation: "settingsFadeIn 0.26s cubic-bezier(0.16,1,0.3,1) forwards",
+            boxShadow: "0 28px 72px rgba(15, 23, 42, 0.14), 0 4px 12px rgba(15, 23, 42, 0.04), inset 0 2px 4px rgba(255, 255, 255, 0.9)",
           }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -335,8 +396,8 @@ export default function SettingsModal({ user, onClose, onSignOut }: Props) {
           {/* ── Header ── */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1.5rem 1.75rem 1.25rem", borderBottom: "1px solid var(--border-light)", flexShrink: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-              <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="var(--bg-primary)">
+              <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: "rgba(37, 99, 235, 0.1)", display: "flex", alignItems: "center", justifyContent: "center", color: "#2563eb" }}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
                 </svg>
@@ -378,15 +439,19 @@ export default function SettingsModal({ user, onClose, onSignOut }: Props) {
                 <div>
                   <SectionLabel>Display</SectionLabel>
                   <SettingRow label="Compact Mode" description="Reduce spacing across the interface for a denser view." icon={Icons.compact}>
-                    <Toggle checked={compactMode} onChange={setCompactMode} />
+                    <Toggle checked={settings.compactMode} onChange={(v) => updateSetting("compactMode", v)} />
                   </SettingRow>
                   <SettingRow label="Reduce Motion" description="Minimize transitions and animations throughout the app." icon={Icons.motion}>
-                    <Toggle checked={reducedMotion} onChange={setReducedMotion} />
+                    <Toggle checked={settings.reducedMotion} onChange={(v) => updateSetting("reducedMotion", v)} />
                   </SettingRow>
                   <SettingRow label="Font Size" description="Adjust the base reading size across all views." icon={Icons.font}>
                     <div style={{ display: "flex", gap: "0.35rem" }}>
                       {(["sm", "md", "lg"] as const).map((s) => (
-                        <button key={s} className={`fs-btn${fontScale === s ? " active" : ""}`} onClick={() => setFontScale(s)}>
+                        <button
+                          key={s}
+                          className={`fs-btn${settings.fontScale === s ? " active" : ""}`}
+                          onClick={() => updateSetting("fontScale", s)}
+                        >
                           {s.toUpperCase()}
                         </button>
                       ))}
@@ -400,13 +465,13 @@ export default function SettingsModal({ user, onClose, onSignOut }: Props) {
                 <div>
                   <SectionLabel>Email &amp; Alerts</SectionLabel>
                   <SettingRow label="Weekly Digest" description="A curated summary of new acquisitions and research highlights." icon={Icons.digest}>
-                    <Toggle checked={emailDigest} onChange={setEmailDigest} />
+                    <Toggle checked={settings.emailDigest} onChange={(v) => updateSetting("emailDigest", v)} />
                   </SettingRow>
                   <SettingRow label="New Acquisitions" description="Notify when documents are added to your tracked collections." icon={Icons.acq}>
-                    <Toggle checked={newAcquisitions} onChange={setNewAcquisitions} />
+                    <Toggle checked={settings.newAcquisitions} onChange={(v) => updateSetting("newAcquisitions", v)} />
                   </SettingRow>
                   <SettingRow label="Research Alerts" description="Alerts for papers matching your saved inquiry queries." icon={Icons.alert}>
-                    <Toggle checked={researchAlerts} onChange={setResearchAlerts} />
+                    <Toggle checked={settings.researchAlerts} onChange={(v) => updateSetting("researchAlerts", v)} />
                   </SettingRow>
                 </div>
               )}
@@ -418,16 +483,44 @@ export default function SettingsModal({ user, onClose, onSignOut }: Props) {
 
                   {/* Profile Card */}
                   <div style={{ display: "flex", alignItems: "center", gap: "1.1rem", padding: "1.1rem 1.25rem", background: "var(--accent-light)", borderRadius: "16px", border: "1px solid var(--border-light)", marginBottom: "1.5rem", marginTop: "0.4rem" }}>
-                    <div style={{ width: "54px", height: "54px", borderRadius: "50%", background: "var(--accent)", color: "var(--bg-primary)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.25rem", fontWeight: 700, flexShrink: 0, boxShadow: "0 4px 14px rgba(0,0,0,0.15)" }}>
-                      {user.initials}
+                    <div
+                      style={{
+                        width: "60px",
+                        height: "60px",
+                        borderRadius: "50%",
+                        background: "var(--accent)",
+                        color: "var(--bg-primary)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "1.35rem",
+                        fontWeight: 700,
+                        flexShrink: 0,
+                        boxShadow: "0 4px 14px rgba(0,0,0,0.15)",
+                        overflow: "hidden",
+                        border: "2px solid var(--accent)",
+                      }}
+                    >
+                      {avatar ? (
+                        <img src={avatar} alt={user.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      ) : (
+                        user.initials
+                      )}
                     </div>
                     <div style={{ overflow: "hidden", flex: 1 }}>
-                      <p style={{ margin: 0, fontWeight: 700, fontSize: "0.92rem", color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.name}</p>
+                      <p style={{ margin: 0, fontWeight: 700, fontSize: "0.95rem", color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.name}</p>
                       <p style={{ margin: "0.12rem 0 0.3rem 0", fontSize: "0.775rem", color: "var(--text-secondary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.email}</p>
                       <span style={{ fontSize: "0.67rem", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600 }}>
                         {user.role || "Scholar"} &middot; {user.affiliation || "Cognitive Science"}
                       </span>
                     </div>
+                    <button
+                      onClick={() => setIsAvatarModalOpen(true)}
+                      className="btn-primary"
+                      style={{ padding: "0.4rem 0.85rem", fontSize: "0.75rem", flexShrink: 0 }}
+                    >
+                      📷 Change Avatar
+                    </button>
                   </div>
 
                   <SectionLabel>Session Details</SectionLabel>
@@ -451,13 +544,20 @@ export default function SettingsModal({ user, onClose, onSignOut }: Props) {
                 <div>
                   <SectionLabel>Data &amp; Storage</SectionLabel>
                   <SettingRow label="Save Search History" description="Store your inquiry history for quick access and personalized suggestions." icon={Icons.history}>
-                    <Toggle checked={searchHistory} onChange={setSearchHistory} />
+                    <Toggle checked={settings.searchHistory} onChange={(v) => updateSetting("searchHistory", v)} />
                   </SettingRow>
                   <SettingRow label="Usage Analytics" description="Share anonymized usage data to help improve the research platform." icon={Icons.analytics}>
-                    <Toggle checked={analyticsOptIn} onChange={setAnalyticsOptIn} />
+                    <Toggle checked={settings.analyticsOptIn} onChange={(v) => updateSetting("analyticsOptIn", v)} />
                   </SettingRow>
-                  <div style={{ paddingTop: "1.25rem", marginTop: "0.75rem" }}>
-                    <button className="ghost-action-btn">Clear Search History</button>
+                  <div style={{ paddingTop: "1.25rem", marginTop: "0.75rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                    <button className="ghost-action-btn" onClick={handleClearHistory}>
+                      Clear Search History
+                    </button>
+                    {historyCleared && (
+                      <span style={{ fontSize: "0.75rem", color: "#16a34a", textAlign: "center", fontWeight: 500 }}>
+                        ✓ Search history cleared successfully
+                      </span>
+                    )}
                   </div>
                 </div>
               )}
@@ -466,21 +566,61 @@ export default function SettingsModal({ user, onClose, onSignOut }: Props) {
           </div>
 
           {/* ── Footer ── */}
-          <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", padding: "1rem 1.75rem", borderTop: "1px solid var(--border-light)", flexShrink: 0, gap: "0.65rem" }}>
-            <button onClick={onClose} style={{ padding: "0.55rem 1.1rem", border: "1.5px solid var(--border-strong)", borderRadius: "9999px", background: "transparent", cursor: "pointer", fontSize: "0.83rem", fontFamily: "var(--font-sans)", color: "var(--text-secondary)", fontWeight: 500, transition: "all 0.2s ease" }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--accent-light)"; e.currentTarget.style.color = "var(--text-primary)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-secondary)"; }}
-            >Cancel</button>
-            <button onClick={onClose} style={{ padding: "0.55rem 1.25rem", border: "none", borderRadius: "9999px", background: "var(--accent)", color: "var(--bg-primary)", cursor: "pointer", fontSize: "0.83rem", fontFamily: "var(--font-sans)", fontWeight: 600, transition: "all 0.2s ease", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
-              onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.88"; e.currentTarget.style.transform = "translateY(-1px)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.transform = "translateY(0)"; }}
-            >Save Changes</button>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "1rem 1.75rem", borderTop: "1px solid var(--border-light)", flexShrink: 0, gap: "0.65rem" }}>
+            <div>
+              {saveToast && (
+                <span style={{ fontSize: "0.8rem", color: "#16a34a", fontWeight: 600 }}>
+                  ✓ Preferences saved successfully!
+                </span>
+              )}
+            </div>
+            <div style={{ display: "flex", gap: "0.65rem" }}>
+              <button
+                onClick={onClose}
+                style={{ padding: "0.55rem 1.1rem", border: "1.5px solid var(--border-strong)", borderRadius: "9999px", background: "transparent", cursor: "pointer", fontSize: "0.83rem", fontFamily: "var(--font-sans)", color: "var(--text-secondary)", fontWeight: 500, transition: "all 0.2s ease" }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "var(--accent-light)"; e.currentTarget.style.color = "var(--text-primary)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-secondary)"; }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                style={{
+                  padding: "0.55rem 1.35rem",
+                  border: "none",
+                  borderRadius: "9999px",
+                  background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
+                  color: "#FFFFFF",
+                  cursor: "pointer",
+                  fontSize: "0.83rem",
+                  fontFamily: "var(--font-sans)",
+                  fontWeight: 600,
+                  transition: "all 0.2s ease",
+                  boxShadow: "0 4px 14px rgba(37, 99, 235, 0.28)",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                  e.currentTarget.style.boxShadow = "0 6px 18px rgba(37, 99, 235, 0.36)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "0 4px 14px rgba(37, 99, 235, 0.28)";
+                }}
+              >
+                Save Changes
+              </button>
+            </div>
           </div>
 
         </div>
       </div>
+
+      <AvatarModal
+        user={user}
+        isOpen={isAvatarModalOpen}
+        onClose={() => setIsAvatarModalOpen(false)}
+        onAvatarUpdated={(newAvatar) => setAvatar(newAvatar)}
+      />
     </>
   );
 }
-
-

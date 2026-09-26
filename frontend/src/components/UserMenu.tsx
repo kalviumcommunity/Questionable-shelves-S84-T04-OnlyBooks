@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { User } from "../App";
 import SettingsModal from "./SettingsModal";
+import AvatarModal from "./AvatarModal";
+import { getUserAvatar } from "../utils/userPreferences";
 
 interface Props {
   user: User;
@@ -17,7 +19,20 @@ export default function UserMenu({ user, onSignOut }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
+  const [avatar, setAvatar] = useState<string | null>(() => getUserAvatar(user.email));
   const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setAvatar(getUserAvatar(user.email));
+    const handleAvatarChange = (e: any) => {
+      if (e.detail?.email === user.email) {
+        setAvatar(e.detail.avatar);
+      }
+    };
+    window.addEventListener("onlybooks-avatar-changed", handleAvatarChange);
+    return () => window.removeEventListener("onlybooks-avatar-changed", handleAvatarChange);
+  }, [user.email]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -33,13 +48,13 @@ export default function UserMenu({ user, onSignOut }: Props) {
 
   // Prevent body scroll when a modal is open
   useEffect(() => {
-    if (isProfileOpen || isSettingsOpen) {
+    if (isProfileOpen || isSettingsOpen || isAvatarModalOpen) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
     }
     return () => { document.body.style.overflow = ""; };
-  }, [isProfileOpen, isSettingsOpen]);
+  }, [isProfileOpen, isSettingsOpen, isAvatarModalOpen]);
 
   return (
     <>
@@ -49,27 +64,43 @@ export default function UserMenu({ user, onSignOut }: Props) {
           onClick={() => setIsOpen(!isOpen)}
           title={user.name}
           style={{
-            width: 36, height: 36,
+            width: 36,
+            height: 36,
             background: "var(--accent)",
             borderRadius: "50%",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: "0.85rem", fontWeight: 600,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "0.85rem",
+            fontWeight: 600,
             color: "var(--bg-primary)",
             border: isOpen ? "2.5px solid var(--text-primary)" : "2.5px solid transparent",
-            cursor: "pointer", padding: 0,
+            cursor: "pointer",
+            padding: 0,
             transition: "all 0.2s ease",
             boxShadow: isOpen ? "0 4px 12px rgba(0,0,0,0.2)" : "0 2px 6px rgba(0,0,0,0.1)",
+            overflow: "hidden",
           }}
-        >{user.initials}</button>
+        >
+          {avatar ? (
+            <img src={avatar} alt={user.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          ) : (
+            user.initials
+          )}
+        </button>
 
         {isOpen && (
           <div
             className="glass-panel"
             onMouseDown={(e) => e.stopPropagation()}
             style={{
-              position: "absolute", top: "calc(100% + 10px)", right: 0,
-              width: 224, padding: "0.5rem",
-              display: "flex", flexDirection: "column",
+              position: "absolute",
+              top: "calc(100% + 10px)",
+              right: 0,
+              width: 236,
+              padding: "0.5rem",
+              display: "flex",
+              flexDirection: "column",
               zIndex: 300,
               animation: "menuFadeIn 0.18s cubic-bezier(0.16,1,0.3,1) forwards",
               transformOrigin: "top right",
@@ -105,14 +136,28 @@ export default function UserMenu({ user, onSignOut }: Props) {
               body.dark .mi.danger:hover { background: rgba(239,68,68,0.15); color: #f87171; }
             `}</style>
 
-            <div style={{ padding: "0.7rem 0.8rem 0.85rem", borderBottom: "1px solid var(--border-light)", marginBottom: "0.35rem" }}>
-              <p style={{ margin: 0, fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.name}</p>
-              <p style={{ margin: "0.1rem 0 0", fontSize: "0.73rem", color: "var(--text-secondary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.email || "academic@university.edu"}</p>
+            <div style={{ padding: "0.7rem 0.8rem 0.85rem", borderBottom: "1px solid var(--border-light)", marginBottom: "0.35rem", display: "flex", alignItems: "center", gap: "0.65rem" }}>
+              <div style={{ width: 34, height: 34, borderRadius: "50%", background: "var(--accent)", color: "var(--bg-primary)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.85rem", fontWeight: 600, flexShrink: 0, overflow: "hidden" }}>
+                {avatar ? (
+                  <img src={avatar} alt={user.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                ) : (
+                  user.initials
+                )}
+              </div>
+              <div style={{ overflow: "hidden", flex: 1 }}>
+                <p style={{ margin: 0, fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.name}</p>
+                <p style={{ margin: "0.1rem 0 0", fontSize: "0.73rem", color: "var(--text-secondary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.email || "academic@university.edu"}</p>
+              </div>
             </div>
 
             <button className="mi" onClick={() => { setIsOpen(false); setIsProfileOpen(true); }}>
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" /></svg>
               View Profile
+            </button>
+
+            <button className="mi" onClick={() => { setIsOpen(false); setIsAvatarModalOpen(true); }}>
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z" /></svg>
+              Change Photo
             </button>
 
             <button className="mi" onClick={() => { setIsOpen(false); setIsSettingsOpen(true); }}>
@@ -130,19 +175,22 @@ export default function UserMenu({ user, onSignOut }: Props) {
         )}
       </div>
 
-      {/* === PORTALS — rendered directly into document.body, escaping all parent stacking contexts === */}
+      {/* === PORTALS — rendered directly into document.body === */}
 
       {isProfileOpen && (
         <Portal>
           <div
             onClick={() => setIsProfileOpen(false)}
             style={{
-              position: "fixed", inset: 0,
-              background: "rgba(0,0,0,0.72)",
+              position: "fixed",
+              inset: 0,
+              background: "rgba(15, 23, 42, 0.16)",
               backdropFilter: "blur(8px)",
               WebkitBackdropFilter: "blur(8px)",
               zIndex: 9999,
-              display: "flex", alignItems: "center", justifyContent: "center",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
               padding: "1rem",
             }}
           >
@@ -152,7 +200,8 @@ export default function UserMenu({ user, onSignOut }: Props) {
                 background: "var(--bg-secondary)",
                 border: "1px solid var(--border-strong)",
                 borderRadius: 24,
-                width: "100%", maxWidth: 440,
+                width: "100%",
+                maxWidth: 440,
                 padding: "2rem",
                 position: "relative",
                 boxShadow: "0 32px 80px rgba(0,0,0,0.5)",
@@ -161,13 +210,79 @@ export default function UserMenu({ user, onSignOut }: Props) {
             >
               <button
                 onClick={() => setIsProfileOpen(false)}
-                style={{ position: "absolute", top: "1.2rem", right: "1.2rem", width: 30, height: 30, borderRadius: "50%", border: "1px solid var(--border-strong)", background: "var(--accent-light)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.85rem", color: "var(--text-secondary)", fontFamily: "var(--font-sans)" }}
-              >&#x2715;</button>
+                style={{
+                  position: "absolute",
+                  top: "1.2rem",
+                  right: "1.2rem",
+                  width: 30,
+                  height: 30,
+                  borderRadius: "50%",
+                  border: "1px solid var(--border-strong)",
+                  background: "var(--accent-light)",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "0.85rem",
+                  color: "var(--text-secondary)",
+                  fontFamily: "var(--font-sans)",
+                }}
+              >
+                ✕
+              </button>
 
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", marginBottom: "1.5rem" }}>
-                <div style={{ width: 70, height: 70, borderRadius: "50%", background: "var(--accent)", color: "var(--bg-primary)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.7rem", fontWeight: 700, marginBottom: "1rem", boxShadow: "0 8px 24px rgba(0,0,0,0.2)" }}>
-                  {user.initials}
+                <div style={{ position: "relative", marginBottom: "1rem" }}>
+                  <div
+                    style={{
+                      width: 78,
+                      height: 78,
+                      borderRadius: "50%",
+                      background: "var(--accent)",
+                      color: "var(--bg-primary)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "1.8rem",
+                      fontWeight: 700,
+                      boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
+                      overflow: "hidden",
+                      border: "2.5px solid var(--accent)",
+                    }}
+                  >
+                    {avatar ? (
+                      <img src={avatar} alt={user.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    ) : (
+                      user.initials
+                    )}
+                  </div>
+                  <button
+                    onClick={() => {
+                      setIsProfileOpen(false);
+                      setIsAvatarModalOpen(true);
+                    }}
+                    title="Change Avatar"
+                    style={{
+                      position: "absolute",
+                      bottom: -2,
+                      right: -2,
+                      width: 28,
+                      height: 28,
+                      borderRadius: "50%",
+                      background: "var(--bg-secondary)",
+                      border: "1.5px solid var(--border-strong)",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "0.82rem",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+                    }}
+                  >
+                    📷
+                  </button>
                 </div>
+
                 <h2 style={{ fontFamily: "var(--font-display)", fontSize: "1.35rem", fontWeight: 700, margin: 0, color: "var(--text-primary)" }}>{user.name}</h2>
                 <p style={{ margin: "0.3rem 0 0.75rem", fontSize: "0.85rem", color: "var(--text-secondary)" }}>{user.email}</p>
                 <span style={{ fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, padding: "0.25rem 0.8rem", borderRadius: 9999, background: "var(--accent-light)", color: "var(--text-primary)", border: "1px solid var(--border-light)" }}>
@@ -214,6 +329,13 @@ export default function UserMenu({ user, onSignOut }: Props) {
           />
         </Portal>
       )}
+
+      <AvatarModal
+        user={user}
+        isOpen={isAvatarModalOpen}
+        onClose={() => setIsAvatarModalOpen(false)}
+        onAvatarUpdated={(newAvatar) => setAvatar(newAvatar)}
+      />
     </>
   );
 }

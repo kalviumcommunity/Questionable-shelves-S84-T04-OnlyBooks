@@ -23,6 +23,7 @@ export interface RegisterPayload {
   email: string;
   password: string;
   affiliation?: string;
+  role?: string;
 }
 
 export interface LoginPayload {
@@ -92,6 +93,20 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 }
 
 export const authApi = {
+  async sendOtp(email: string): Promise<{ success: boolean; message: string; otp?: string }> {
+    return request<{ success: boolean; message: string; otp?: string }>("/auth/send-otp", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  async verifyOtp(email: string, otp: string): Promise<{ verified: boolean; message: string }> {
+    return request<{ verified: boolean; message: string }>("/auth/verify-otp", {
+      method: "POST",
+      body: JSON.stringify({ email, otp }),
+    });
+  },
+
   async register(payload: RegisterPayload): Promise<AuthResponse> {
     const data = await request<AuthResponse>("/auth/register", {
       method: "POST",
