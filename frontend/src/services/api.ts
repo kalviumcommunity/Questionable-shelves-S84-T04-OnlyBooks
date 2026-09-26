@@ -67,7 +67,11 @@ export async function checkApiHealth(customUrl?: string): Promise<{ ok: boolean;
     }
     return { ok: false, status: res.status, message: `Server returned HTTP ${res.status}` };
   } catch (err: any) {
-    return { ok: false, status: 0, message: err.message || "Failed to reach server. Check URL and CORS." };
+    let msg = err.message || "Failed to reach server.";
+    if (msg === "Failed to fetch" || msg.includes("Failed to fetch")) {
+      msg = "Cannot reach this URL (Failed to fetch). Please check your Render Dashboard and copy the exact URL under your service name (Render often appends random letters, e.g. -xxxx.onrender.com).";
+    }
+    return { ok: false, status: 0, message: msg };
   }
 }
 
