@@ -7,11 +7,14 @@ from ..config import settings
 
 logger = logging.getLogger(__name__)
 
-def _send_sync_email(to_email: str, code: str) -> bool:
+def _send_sync_email(to_email: str, code: str) -> tuple[bool, str]:
     """Synchronously connects to SMTP server and sends verification code email."""
-    if not settings.SMTP_HOST or not settings.SMTP_USER or not settings.SMTP_PASSWORD:
-        logger.info("SMTP credentials not configured. Using simulated OTP mode.")
-        return False
+    if not settings.SMTP_HOST:
+        return False, "SMTP_HOST is missing in server environment variables"
+    if not settings.SMTP_USER:
+        return False, "SMTP_USER is missing in server environment variables"
+    if not settings.SMTP_PASSWORD:
+        return False, "SMTP_PASSWORD is missing in server environment variables"
 
     sender_email = settings.SMTP_FROM_EMAIL or settings.SMTP_USER
     sender_name = settings.SMTP_FROM_NAME or "OnlyBooks Library Archive"
@@ -82,11 +85,12 @@ If you did not request this verification code, please ignore this email.
                 server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
                 server.sendmail(sender_email, [to_email], msg.as_string())
         logger.info(f"Verification email successfully dispatched to {to_email}")
-        return True
+        return True, "Email dispatched successfully"
     except Exception as e:
-        logger.error(f"Failed to dispatch verification email to {to_email}: {e}")
-        return False
+        err_msg = f"SMTP error: {str(e)}"
+        logger.error(f"Failed to dispatch verification email to {to_email}: {err_msg}")
+        return False, err_msg
 
-async def send_verification_email(to_email: str, code: str) -> bool:
+async def send_verification_email(to_email: str, code: str) -> tuple[bool, str]:
     """Asynchronously dispatches an academic verification email without blocking."""
     return await asyncio.to_thread(_send_sync_email, to_email, code)

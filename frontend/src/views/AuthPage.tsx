@@ -128,6 +128,7 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
   const [otpDigits, setOtpDigits] = useState<string[]>(["", "", "", "", "", ""]);
   const [activeOtpCode, setActiveOtpCode] = useState<string | null>(null);
   const [isSimulatedOtp, setIsSimulatedOtp] = useState(false);
+  const [smtpDebug, setSmtpDebug] = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState(30);
 
   // Status & Error
@@ -265,6 +266,7 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
 
       setActiveOtpCode(code);
       setIsSimulatedOtp(simulated);
+      setSmtpDebug(res.smtp_debug || null);
       setOtpDigits(["", "", "", "", "", ""]);
       setResendCooldown(45);
       setStage("otp");
@@ -353,6 +355,7 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
       const simulated = Boolean(res.is_simulated || res.otp);
       setActiveOtpCode(code);
       setIsSimulatedOtp(simulated);
+      setSmtpDebug(res.smtp_debug || null);
       setOtpDigits(["", "", "", "", "", ""]);
       setResendCooldown(45);
       setSuccessMsg(
@@ -1332,6 +1335,11 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                           <p style={{ margin: "0.15rem 0 0", fontSize: "0.71rem", color: "var(--text-secondary)" }}>
                             SMTP not configured on backend. Add <code>SMTP_HOST</code> &amp; <code>SMTP_PASSWORD</code> in Render to send live emails.
                           </p>
+                          {smtpDebug && (
+                            <p style={{ margin: "0.3rem 0 0", fontSize: "0.70rem", color: "#b45309", fontWeight: 600 }}>
+                              ⚠️ Diagnostic: {smtpDebug}
+                            </p>
+                          )}
                         </div>
                       </div>
                       <button

@@ -207,8 +207,8 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 }
 
 export const authApi = {
-  async sendOtp(email: string): Promise<{ success: boolean; message: string; otp?: string; is_simulated?: boolean }> {
-    return request<{ success: boolean; message: string; otp?: string; is_simulated?: boolean }>("/auth/send-otp", {
+  async sendOtp(email: string): Promise<{ success: boolean; message: string; otp?: string; is_simulated?: boolean; smtp_debug?: string }> {
+    return request<{ success: boolean; message: string; otp?: string; is_simulated?: boolean; smtp_debug?: string }>("/auth/send-otp", {
       method: "POST",
       body: JSON.stringify({ email }),
     });

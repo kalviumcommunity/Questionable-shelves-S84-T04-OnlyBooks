@@ -58,7 +58,7 @@ async def send_otp(payload: SendOTPRequest):
     _otp_store[email] = (code, time.time() + 300) # Valid for 5 minutes
     
     # Attempt real email dispatch via SMTP
-    email_dispatched = await send_verification_email(email, code)
+    email_dispatched, reason = await send_verification_email(email, code)
 
     if email_dispatched:
         return {
@@ -70,9 +70,10 @@ async def send_otp(payload: SendOTPRequest):
     else:
         return {
             "success": True,
-            "message": f"Simulated verification code generated for {email} (SMTP not configured on server)",
+            "message": f"Simulated verification code generated for {email} ({reason})",
             "is_simulated": True,
             "otp": code, # Provided so testing never breaks if SMTP is not yet configured
+            "smtp_debug": reason,
         }
 
 @router.post("/verify-otp")
