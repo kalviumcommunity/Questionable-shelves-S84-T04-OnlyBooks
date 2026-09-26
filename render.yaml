@@ -13,9 +13,6 @@ services:
         value: "7"
 
   # Frontend Static Site
-  - type: web
-    name: onlybooks-frontend
-    runtime: static
   - type: static
     name: onlybooks-frontend
     rootDir: frontend
