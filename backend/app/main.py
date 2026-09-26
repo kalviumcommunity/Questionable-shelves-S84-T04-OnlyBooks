@@ -48,6 +48,24 @@ async def lifespan(app: FastAPI):
             )
             session.add_all([demo_student, demo_librarian])
             await session.commit()
+
+        # Seed or ensure faculty@university.edu has role="faculty"
+        fac_res = await session.execute(select(User).where(User.email == "faculty@university.edu"))
+        existing_fac = fac_res.scalars().first()
+        if not existing_fac:
+            demo_faculty = User(
+                name="Prof. Eleanor Vance",
+                email="faculty@university.edu",
+                hashed_password=get_password_hash("demo123"),
+                affiliation="Faculty of Cognitive Science & Archive Fellow",
+                role="faculty",
+                provider="local",
+            )
+            session.add(demo_faculty)
+            await session.commit()
+        elif existing_fac.role != "faculty":
+            existing_fac.role = "faculty"
+            await session.commit()
             
     yield
 

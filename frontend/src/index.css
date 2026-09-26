@@ -1,4 +1,4 @@
-﻿@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;1,14..32,400&family=STIX+Two+Text:ital,wght@0,400;0,600;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;1,14..32,400&family=STIX+Two+Text:ital,wght@0,400;0,600;1,400&display=swap');
 @import "tailwindcss";
 
 :root {
@@ -117,6 +117,8 @@ body.dark .glass-panel-hover:hover {
 }
 
 .glass-nav {
+  position: relative;
+  z-index: 50;
   background: rgba(255, 255, 255, 0.65);
   backdrop-filter: blur(20px) saturate(1.4);
   -webkit-backdrop-filter: blur(20px) saturate(1.4);
@@ -164,6 +166,35 @@ body.dark .glass-nav {
 
 body.dark .btn-primary { box-shadow: 0 4px 14px rgba(255,255,255,0.08); }
 body.dark .btn-primary:hover:not(:disabled) { box-shadow: 0 6px 20px rgba(255,255,255,0.12); }
+
+.btn-secondary {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1.5px solid var(--border-strong);
+  padding: 0.6rem 1.35rem;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+.btn-secondary:hover:not(:disabled) {
+  background: var(--accent-light);
+  border-color: var(--text-secondary);
+  transform: translateY(-1px);
+}
+body.dark .btn-secondary {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: var(--text-primary);
+}
+body.dark .btn-secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.28);
+}
 
 .btn-ghost {
   background: transparent;

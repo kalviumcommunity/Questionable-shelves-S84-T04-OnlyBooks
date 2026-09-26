@@ -1,4 +1,4 @@
-﻿import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { User } from "../App";
 import SettingsModal from "./SettingsModal";
@@ -44,7 +44,7 @@ export default function UserMenu({ user, onSignOut }: Props) {
   return (
     <>
       {/* Avatar + Dropdown — normal in flow */}
-      <div style={{ position: "relative" }} ref={menuRef}>
+      <div style={{ position: "relative", zIndex: 100 }} ref={menuRef}>
         <button
           onClick={() => setIsOpen(!isOpen)}
           title={user.name}
@@ -65,6 +65,7 @@ export default function UserMenu({ user, onSignOut }: Props) {
         {isOpen && (
           <div
             className="glass-panel"
+            onMouseDown={(e) => e.stopPropagation()}
             style={{
               position: "absolute", top: "calc(100% + 10px)", right: 0,
               width: 224, padding: "0.5rem",
@@ -72,9 +73,12 @@ export default function UserMenu({ user, onSignOut }: Props) {
               zIndex: 300,
               animation: "menuFadeIn 0.18s cubic-bezier(0.16,1,0.3,1) forwards",
               transformOrigin: "top right",
-              boxShadow: "0 24px 48px rgba(0,0,0,0.18), inset 0 1px 1px rgba(255,255,255,0.5)",
-              background: "rgba(255,255,255,0.85)",
+              boxShadow: "0 24px 48px rgba(0,0,0,0.22), inset 0 1px 1px rgba(255,255,255,0.5)",
+              background: "var(--bg-secondary)",
+              border: "1px solid var(--border-strong)",
+              borderRadius: 16,
               backdropFilter: "blur(24px)",
+              WebkitBackdropFilter: "blur(24px)",
             }}
           >
             <style>{`

@@ -332,7 +332,7 @@ export default function SynthesisView({
           padding: "0.75rem 1.5rem",
           flexShrink: 0,
           position: "relative",
-          zIndex: 10
+          zIndex: 50
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>

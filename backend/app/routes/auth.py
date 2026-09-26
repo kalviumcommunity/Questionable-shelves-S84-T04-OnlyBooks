@@ -29,12 +29,13 @@ async def register(user_in: UserRegister, db: AsyncSession = Depends(get_db)):
     
     # Hash password and create user
     hashed_pwd = get_password_hash(user_in.password)
+    user_role = user_in.role or ("faculty" if "faculty" in user_in.email.lower() else "student")
     new_user = User(
         name=user_in.name.strip(),
         email=user_in.email.lower().strip(),
         hashed_password=hashed_pwd,
-        affiliation=user_in.affiliation or "University Scholar",
-        role="student",
+        affiliation=user_in.affiliation or ("Faculty Research Fellow" if user_role == "faculty" else "University Scholar"),
+        role=user_role,
         provider="local",
     )
     

@@ -16,7 +16,7 @@ export default function GetStarted({ user, onBack, onSignOut }: Props) {
     >
       <header
         className="glass-nav flex items-center justify-between px-8 py-5 flex-shrink-0"
-        style={{ position: "relative", zIndex: 10 }}
+        style={{ position: "relative", zIndex: 50 }}
       >
         <div
           onClick={onBack}
