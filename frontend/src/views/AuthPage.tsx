@@ -259,17 +259,9 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
 
     setLoading(true);
     try {
-      let code: string | null = null;
-      let simulated = false;
-      try {
-        const res = await authApi.sendOtp(cleanEmail);
-        code = res.otp || null;
-        simulated = Boolean(res.is_simulated || res.otp);
-      } catch (err: any) {
-        console.warn("Using simulated OTP dispatch fallback:", err);
-        code = `${Math.floor(100000 + Math.random() * 900000)}`;
-        simulated = true;
-      }
+      const res = await authApi.sendOtp(cleanEmail);
+      const code = res.otp || null;
+      const simulated = Boolean(res.is_simulated || res.otp);
 
       setActiveOtpCode(code);
       setIsSimulatedOtp(simulated);
@@ -282,7 +274,18 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
           : `A 6-digit verification code was emailed to ${cleanEmail}. Please check your inbox and spam folder.`
       );
     } catch (err: any) {
-      setError(err.message || "Failed to dispatch verification code.");
+      const msg = err.message || "Failed to dispatch verification code.";
+      setError(msg);
+      if (
+        msg.includes("404") ||
+        msg.includes("cannot reach") ||
+        msg.includes("Cannot connect") ||
+        msg.includes("not reached") ||
+        msg.includes("received HTML") ||
+        msg.includes("Failed to fetch")
+      ) {
+        setShowServerConfig(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -301,21 +304,9 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
 
     setLoading(true);
     try {
-      // 1. Verify OTP with backend (with fallback comparison)
-      let isVerified = false;
-      try {
-        const res = await authApi.verifyOtp(email.trim().toLowerCase(), enteredCode);
-        isVerified = res.verified;
-      } catch (otpErr: any) {
-        // If simulated in dev
-        if (activeOtpCode && enteredCode === activeOtpCode) {
-          isVerified = true;
-        } else {
-          throw otpErr;
-        }
-      }
-
-      if (!isVerified) {
+      // 1. Verify OTP with backend
+      const res = await authApi.verifyOtp(email.trim().toLowerCase(), enteredCode);
+      if (!res.verified) {
         throw new Error("Invalid verification code. Please check and retry.");
       }
 
@@ -336,7 +327,14 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
     } catch (err: any) {
       const msg = err.message || "Verification failed. Please ensure the code is correct.";
       setError(msg);
-      if (msg.includes("404") || msg.includes("cannot reach") || msg.includes("Cannot connect")) {
+      if (
+        msg.includes("404") ||
+        msg.includes("cannot reach") ||
+        msg.includes("Cannot connect") ||
+        msg.includes("not reached") ||
+        msg.includes("received HTML") ||
+        msg.includes("Failed to fetch")
+      ) {
         setShowServerConfig(true);
       }
     } finally {
@@ -350,16 +348,9 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
     setError(null);
     setLoading(true);
     try {
-      let code: string | null = null;
-      let simulated = false;
-      try {
-        const res = await authApi.sendOtp(email.trim().toLowerCase());
-        code = res.otp || null;
-        simulated = Boolean(res.is_simulated || res.otp);
-      } catch {
-        code = `${Math.floor(100000 + Math.random() * 900000)}`;
-        simulated = true;
-      }
+      const res = await authApi.sendOtp(email.trim().toLowerCase());
+      const code = res.otp || null;
+      const simulated = Boolean(res.is_simulated || res.otp);
       setActiveOtpCode(code);
       setIsSimulatedOtp(simulated);
       setOtpDigits(["", "", "", "", "", ""]);
@@ -370,7 +361,18 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
           : `A fresh 6-digit code was emailed to ${email}. Please check your inbox and spam folder.`
       );
     } catch (err: any) {
-      setError(err.message || "Failed to resend code.");
+      const msg = err.message || "Failed to resend code.";
+      setError(msg);
+      if (
+        msg.includes("404") ||
+        msg.includes("cannot reach") ||
+        msg.includes("Cannot connect") ||
+        msg.includes("not reached") ||
+        msg.includes("received HTML") ||
+        msg.includes("Failed to fetch")
+      ) {
+        setShowServerConfig(true);
+      }
     } finally {
       setLoading(false);
     }
