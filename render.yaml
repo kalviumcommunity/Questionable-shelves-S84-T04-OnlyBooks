@@ -13,9 +13,8 @@ services:
         value: "7"
 
   # Frontend Static Site
-  - type: web
+  - type: static
     name: onlybooks-frontend
-    runtime: static
     rootDir: frontend
     buildCommand: npm run build
     staticPublishPath: dist
