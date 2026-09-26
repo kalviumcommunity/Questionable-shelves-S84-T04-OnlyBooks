@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     SMTP_FROM_NAME: str = os.getenv("SMTP_FROM_NAME", "OnlyBooks Academic Library")
     SMTP_TLS: bool = os.getenv("SMTP_TLS", "true").lower() in ("true", "1", "yes")
 
+    # Cloud HTTP Email APIs (Use port 443 HTTPS - works on Render Free Tier where outbound SMTP is blocked)
+    RESEND_API_KEY: Optional[str] = os.getenv("RESEND_API_KEY", "")
+    BREVO_API_KEY: Optional[str] = os.getenv("BREVO_API_KEY", "")
+
     # CORS origins
     CORS_ORIGINS: List[str] = [
         "http://localhost:5173",
