@@ -17,11 +17,11 @@ class Settings(BaseSettings):
     GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
     
     # SMTP Email Configuration for Real Verification Delivery
-    SMTP_HOST: Optional[str] = os.getenv("SMTP_HOST", "")
-    SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587"))
-    SMTP_USER: Optional[str] = os.getenv("SMTP_USER", "")
-    SMTP_PASSWORD: Optional[str] = os.getenv("SMTP_PASSWORD", "")
-    SMTP_FROM_EMAIL: Optional[str] = os.getenv("SMTP_FROM_EMAIL", "")
+    SMTP_HOST: Optional[str] = os.getenv("SMTP_HOST") or os.getenv("SMPT_HOST", "")
+    SMTP_PORT: int = int(os.getenv("SMTP_PORT") or os.getenv("SMPT_PORT", "587"))
+    SMTP_USER: Optional[str] = os.getenv("SMTP_USER") or os.getenv("SMPT_USER", "")
+    SMTP_PASSWORD: Optional[str] = os.getenv("SMTP_PASSWORD") or os.getenv("SMPT_PASSWORD", "")
+    SMTP_FROM_EMAIL: Optional[str] = os.getenv("SMTP_FROM_EMAIL") or os.getenv("SMPT_FROM_EMAIL", "")
     SMTP_FROM_NAME: str = os.getenv("SMTP_FROM_NAME", "OnlyBooks Academic Library")
     SMTP_TLS: bool = os.getenv("SMTP_TLS", "true").lower() in ("true", "1", "yes")
 

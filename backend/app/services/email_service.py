@@ -9,14 +9,19 @@ logger = logging.getLogger(__name__)
 
 def _send_sync_email(to_email: str, code: str) -> tuple[bool, str]:
     """Synchronously connects to SMTP server and sends verification code email."""
-    if not settings.SMTP_HOST:
+    smtp_host = (settings.SMTP_HOST or "").strip()
+    smtp_user = (settings.SMTP_USER or "").strip()
+    # Google App Passwords are 16 letters usually formatted with spaces (e.g. "abcd efgh ijkl mnop")
+    smtp_password = (settings.SMTP_PASSWORD or "").replace(" ", "").strip()
+
+    if not smtp_host:
         return False, "SMTP_HOST is missing in server environment variables"
-    if not settings.SMTP_USER:
+    if not smtp_user:
         return False, "SMTP_USER is missing in server environment variables"
-    if not settings.SMTP_PASSWORD:
+    if not smtp_password:
         return False, "SMTP_PASSWORD is missing in server environment variables"
 
-    sender_email = settings.SMTP_FROM_EMAIL or settings.SMTP_USER
+    sender_email = (settings.SMTP_FROM_EMAIL or smtp_user).strip()
     sender_name = settings.SMTP_FROM_NAME or "OnlyBooks Library Archive"
     from_header = f"{sender_name} <{sender_email}>"
 
@@ -75,14 +80,14 @@ If you did not request this verification code, please ignore this email.
     try:
         port = int(settings.SMTP_PORT)
         if port == 465:
-            with smtplib.SMTP_SSL(settings.SMTP_HOST, port, timeout=12) as server:
-                server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+            with smtplib.SMTP_SSL(smtp_host, port, timeout=12) as server:
+                server.login(smtp_user, smtp_password)
                 server.sendmail(sender_email, [to_email], msg.as_string())
         else:
-            with smtplib.SMTP(settings.SMTP_HOST, port, timeout=12) as server:
+            with smtplib.SMTP(smtp_host, port, timeout=12) as server:
                 if settings.SMTP_TLS:
                     server.starttls()
-                server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+                server.login(smtp_user, smtp_password)
                 server.sendmail(sender_email, [to_email], msg.as_string())
         logger.info(f"Verification email successfully dispatched to {to_email}")
         return True, "Email dispatched successfully"
