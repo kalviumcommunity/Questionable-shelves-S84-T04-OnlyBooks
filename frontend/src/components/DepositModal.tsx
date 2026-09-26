@@ -175,8 +175,8 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: Props) {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "rgba(15, 23, 42, 0.45)",
-        backdropFilter: "blur(4px)",
+        backgroundColor: "rgba(15, 23, 42, 0.16)",
+        backdropFilter: "blur(6px)",
         padding: "1.5rem",
       }}
     >

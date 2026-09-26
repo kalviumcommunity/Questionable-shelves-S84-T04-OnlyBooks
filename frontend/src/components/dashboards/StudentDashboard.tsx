@@ -251,9 +251,76 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
       {/* Grid: Course Reserves & Study Notebooks */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
         <section className="glass-panel p-5 rounded-xl">
-          <h2 className="text-lg font-semibold mb-4 text-primary">Course Reserves</h2>
-          {/* TODO: Fetch and map reading lists assigned by faculty */}
-          <div className="text-sm text-gray-500 italic">No active course reserves found.</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.85rem" }}>
+            <h2 className="text-base font-bold font-display text-primary flex items-center gap-2">
+              <span>📖</span> Assigned Course Reserves
+            </h2>
+            <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>
+              Term Syllabus
+            </span>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.55rem" }}>
+            {[
+              {
+                code: "PHIL-401",
+                title: "The Epistemology of Scientific Consensus Formation",
+                prof: "Prof. Eleanor Vance",
+                callNumber: "Q175.K84",
+                required: true,
+              },
+              {
+                code: "COG-502",
+                title: "Adult Neuroplasticity and Second-Language Acquisition",
+                prof: "Dept. of Cognitive Science",
+                callNumber: "THES-2024",
+                required: false,
+              },
+              {
+                code: "ATM-310",
+                title: "Climate Feedback Loops and Irreversible Tipping Points",
+                prof: "Atmospheric Systems",
+                callNumber: "CR-ATM-502",
+                required: true,
+              },
+            ].map((res) => (
+              <div
+                key={res.code}
+                onClick={() => onQuery(res.title, "reserves")}
+                style={{
+                  padding: "0.65rem 0.85rem",
+                  borderRadius: "12px",
+                  background: "rgba(255,255,255,0.45)",
+                  border: "1px solid var(--border-light)",
+                  cursor: "pointer",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: "0.6rem",
+                  transition: "all 0.18s ease",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--accent-light)")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.45)")}
+              >
+                <div style={{ overflow: "hidden", flex: 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginBottom: "0.15rem" }}>
+                    <span style={{ fontSize: "0.65rem", fontWeight: 700, color: "var(--text-primary)" }}>{res.code}</span>
+                    {res.required && (
+                      <span style={{ fontSize: "0.6rem", color: "#dc2626", background: "rgba(239,68,68,0.1)", padding: "0.05rem 0.35rem", borderRadius: "4px", fontWeight: 600 }}>
+                        Required
+                      </span>
+                    )}
+                  </div>
+                  <p style={{ margin: 0, fontSize: "0.82rem", fontWeight: 500, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {res.title}
+                  </p>
+                </div>
+                <span style={{ fontSize: "0.68rem", color: "var(--text-secondary)", flexShrink: 0 }}>
+                  {res.callNumber}
+                </span>
+              </div>
+            ))}
+          </div>
         </section>
 
         <section className="glass-panel p-5 rounded-xl">

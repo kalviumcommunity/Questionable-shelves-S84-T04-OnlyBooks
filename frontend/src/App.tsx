@@ -4,6 +4,7 @@ import ResearchPortal from "./views/ResearchPortal";
 import SynthesisView from "./views/SynthesisView";
 import GetStarted from "./views/GetStarted";
 import { authApi, inquiryApi, getStoredToken } from "./services/api";
+import { loadAppSettings, applyAppSettings } from "./utils/userPreferences";
 
 export type AppView = "auth" | "portal" | "synthesis" | "guide";
 
@@ -93,8 +94,9 @@ export default function App() {
       .catch((e) => console.warn("Failed to load inquiry history:", e));
   };
 
-  // Restore authenticated session on initial mount
+  // Restore authenticated session and apply preferences on initial mount
   useEffect(() => {
+    applyAppSettings(loadAppSettings());
     const token = getStoredToken();
     if (!token) {
       setLoadingSession(false);

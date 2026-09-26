@@ -120,6 +120,7 @@ export default function ResearchPortal({
           <FacultyDashboard
             user={user}
             onOpenDeposit={() => setIsDepositOpen(true)}
+            onQuery={onQuery}
           />
         ) : (
           <StudentDashboard

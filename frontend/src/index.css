@@ -356,3 +356,32 @@ h1, h2, h3, h4, h5, h6 {
   text-align: center;
   line-height: 1.4;
 }
+
+/* ── Active Settings Effects ──────────────────────── */
+body.compact-ui .glass-panel {
+  padding: 1.25rem !important;
+}
+body.compact-ui .search-hero {
+  padding-top: 1.25rem !important;
+  padding-bottom: 1.25rem !important;
+}
+body.compact-ui .search-input {
+  padding-top: 0.7rem !important;
+  padding-bottom: 0.7rem !important;
+}
+body.compact-ui .acq-card {
+  padding: 0.95rem !important;
+  margin-bottom: 0.85rem !important;
+}
+
+/* Reduced Motion Mode */
+body.reduced-motion *,
+body.reduced-motion *::before,
+body.reduced-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+body.reduced-motion {
+  animation: none !important;
+}

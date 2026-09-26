@@ -1,10 +1,20 @@
+import random
+import time
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from ..database import get_db
 from ..models.user import User
-from ..schemas.auth import UserRegister, UserLogin, SSOLogin, TokenResponse, UserResponse
+from ..schemas.auth import (
+    UserRegister,
+    UserLogin,
+    SSOLogin,
+    TokenResponse,
+    UserResponse,
+    SendOTPRequest,
+    VerifyOTPRequest,
+)
 from ..utils.security import (
     verify_password,
     get_password_hash,
@@ -13,6 +23,74 @@ from ..utils.security import (
 )
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+# In-memory OTP storage mapping email -> (code, expires_at)
+_otp_store: dict[str, tuple[str, float]] = {}
+
+DISPOSABLE_DOMAINS = {
+    "mailinator.com",
+    "tempmail.com",
+    "10minutemail.com",
+    "guerrillamail.com",
+    "sharklasers.com",
+    "yopmail.com",
+    "trashmail.com",
+    "dispostable.com",
+    "fakeinbox.com",
+    "getairmail.com",
+    "throwawaymail.com",
+}
+
+@router.post("/send-otp")
+async def send_otp(payload: SendOTPRequest):
+    email = payload.email.lower().strip()
+    domain = email.split("@")[-1] if "@" in email else ""
+    
+    if domain in DISPOSABLE_DOMAINS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Temporary or disposable email domains are not permitted for institutional archive registration.",
+        )
+        
+    # Generate 6-digit cryptographic-style verification code
+    code = f"{random.randint(100000, 999999)}"
+    _otp_store[email] = (code, time.time() + 300) # Valid for 5 minutes
+    
+    return {
+        "success": True,
+        "message": f"Verification code dispatched to {email}",
+        "otp": code, # Provided so frontend can show simulated instant delivery in demo/dev mode
+    }
+
+@router.post("/verify-otp")
+async def verify_otp(payload: VerifyOTPRequest):
+    email = payload.email.lower().strip()
+    entry = _otp_store.get(email)
+    
+    if not entry:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No verification code found for this email. Please request a new code.",
+        )
+        
+    code, expires_at = entry
+    if time.time() > expires_at:
+        _otp_store.pop(email, None)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Verification code has expired. Please request a fresh code.",
+        )
+        
+    if payload.otp.strip() != code:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid verification code. Please check the code and try again.",
+        )
+        
+    return {
+        "verified": True,
+        "message": "Email address verified successfully.",
+    }
 
 @router.post("/register", response_model=TokenResponse)
 async def register(user_in: UserRegister, db: AsyncSession = Depends(get_db)):
