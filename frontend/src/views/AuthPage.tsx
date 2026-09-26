@@ -1,6 +1,12 @@
 import { useState, useRef, useEffect, FormEvent } from "react";
 import { User, ThemeToggle } from "../App";
-import { authApi } from "../services/api";
+import {
+  authApi,
+  getApiBaseUrl,
+  setApiBaseUrl,
+  clearApiBaseUrl,
+  checkApiHealth,
+} from "../services/api";
 import Reveal from "../components/Reveal";
 
 interface Props {
@@ -121,12 +127,63 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
   // OTP Verification State
   const [otpDigits, setOtpDigits] = useState<string[]>(["", "", "", "", "", ""]);
   const [activeOtpCode, setActiveOtpCode] = useState<string | null>(null);
+  const [isSimulatedOtp, setIsSimulatedOtp] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(30);
 
   // Status & Error
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Deployed Backend Server Connection State: auto-show if on remote deployment without configured backend
+  const [showServerConfig, setShowServerConfig] = useState(() => {
+    if (typeof window !== "undefined") {
+      const isRemote = window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1";
+      const hasConfigured = localStorage.getItem("onlybooks_api_url") || (import.meta as any).env?.VITE_API_URL;
+      return Boolean(isRemote && !hasConfigured);
+    }
+    return false;
+  });
+  const [customServerUrl, setCustomServerUrl] = useState(() => {
+    const curr = getApiBaseUrl();
+    return curr === "/api" ? "" : curr.replace(/\/api$/, "");
+  });
+  const [testingServer, setTestingServer] = useState(false);
+  const [serverTestResult, setServerTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  // Listen for backend 404 or connection events
+  useEffect(() => {
+    function handleApi404() {
+      setShowServerConfig(true);
+    }
+    window.addEventListener("onlybooks:api_404", handleApi404);
+    return () => window.removeEventListener("onlybooks:api_404", handleApi404);
+  }, []);
+
+  async function handleConnectServer() {
+    setTestingServer(true);
+    setServerTestResult(null);
+    try {
+      const clean = customServerUrl.trim();
+      const res = await checkApiHealth(clean || "/api");
+      if (res.ok) {
+        if (clean) {
+          setApiBaseUrl(clean);
+        } else {
+          clearApiBaseUrl();
+        }
+        setServerTestResult({ ok: true, message: `Connected (${res.message})` });
+        setError(null);
+        setSuccessMsg(`Connected successfully to backend: ${clean || "/api"}`);
+      } else {
+        setServerTestResult({ ok: false, message: res.message });
+      }
+    } catch (e: any) {
+      setServerTestResult({ ok: false, message: e.message || "Failed to reach backend." });
+    } finally {
+      setTestingServer(false);
+    }
+  }
 
   const otpInputsRef = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -148,7 +205,21 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
       const { user } = await authApi.login({ email, password });
       onAuth(user);
     } catch (err: any) {
-      setError(err.message || "Authentication failed. Please check your credentials.");
+      let msg = err.message || "Authentication failed. Please check your credentials.";
+      if (msg.includes("Invalid email or password")) {
+        msg = "Invalid email or password. If you haven't registered this account yet, please switch to the 'Sign Up' tab above to create your account first.";
+      }
+      setError(msg);
+      if (
+        msg.includes("404") ||
+        msg.includes("cannot reach") ||
+        msg.includes("Cannot connect") ||
+        msg.includes("not reached") ||
+        msg.includes("received HTML") ||
+        msg.includes("Failed to fetch")
+      ) {
+        setShowServerConfig(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -188,21 +259,28 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
 
     setLoading(true);
     try {
-      let code = "";
+      let code: string | null = null;
+      let simulated = false;
       try {
         const res = await authApi.sendOtp(cleanEmail);
-        code = res.otp || `${Math.floor(100000 + Math.random() * 900000)}`;
+        code = res.otp || null;
+        simulated = Boolean(res.is_simulated || res.otp);
       } catch (err: any) {
-        // Fallback for offline / dev mock
-        console.warn("Using simulated OTP dispatch:", err);
+        console.warn("Using simulated OTP dispatch fallback:", err);
         code = `${Math.floor(100000 + Math.random() * 900000)}`;
+        simulated = true;
       }
 
       setActiveOtpCode(code);
+      setIsSimulatedOtp(simulated);
       setOtpDigits(["", "", "", "", "", ""]);
-      setResendCooldown(30);
+      setResendCooldown(45);
       setStage("otp");
-      setSuccessMsg(`A 6-digit verification code was dispatched to ${cleanEmail}`);
+      setSuccessMsg(
+        simulated
+          ? `Verification code generated for ${cleanEmail}`
+          : `A 6-digit verification code was emailed to ${cleanEmail}. Please check your inbox and spam folder.`
+      );
     } catch (err: any) {
       setError(err.message || "Failed to dispatch verification code.");
     } finally {
@@ -256,7 +334,11 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
 
       onAuth(user);
     } catch (err: any) {
-      setError(err.message || "Verification failed. Please ensure the code is correct.");
+      const msg = err.message || "Verification failed. Please ensure the code is correct.";
+      setError(msg);
+      if (msg.includes("404") || msg.includes("cannot reach") || msg.includes("Cannot connect")) {
+        setShowServerConfig(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -268,17 +350,25 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
     setError(null);
     setLoading(true);
     try {
-      let code = "";
+      let code: string | null = null;
+      let simulated = false;
       try {
         const res = await authApi.sendOtp(email.trim().toLowerCase());
-        code = res.otp || `${Math.floor(100000 + Math.random() * 900000)}`;
+        code = res.otp || null;
+        simulated = Boolean(res.is_simulated || res.otp);
       } catch {
         code = `${Math.floor(100000 + Math.random() * 900000)}`;
+        simulated = true;
       }
       setActiveOtpCode(code);
+      setIsSimulatedOtp(simulated);
       setOtpDigits(["", "", "", "", "", ""]);
-      setResendCooldown(30);
-      setSuccessMsg(`A new code was dispatched to ${email}`);
+      setResendCooldown(45);
+      setSuccessMsg(
+        simulated
+          ? `A new verification code was generated for ${email}`
+          : `A fresh 6-digit code was emailed to ${email}. Please check your inbox and spam folder.`
+      );
     } catch (err: any) {
       setError(err.message || "Failed to resend code.");
     } finally {
@@ -330,18 +420,43 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
     try {
       const { user } = await authApi.login({ email: demoEmail, password: demoPass });
       onAuth(user);
-    } catch {
+    } catch (loginErr: any) {
+      const msg = loginErr.message || "";
+      // If error indicates network failure or backend unreachable, immediately reveal server config
+      if (
+        msg.includes("Cannot connect") ||
+        msg.includes("not reached") ||
+        msg.includes("404") ||
+        msg.includes("received HTML") ||
+        msg.includes("Failed to fetch")
+      ) {
+        setShowServerConfig(true);
+        setError(msg);
+        return;
+      }
+
+      // Try automatic registration fallback in case the demo account was wiped or not yet registered
       try {
         const { user } = await authApi.register({
           email: demoEmail,
           password: demoPass,
           name: demoName,
           role: demoRole,
-          affiliation: demoRole === "faculty" ? "Dept. of Cognitive Science &middot; Professor" : "Undergraduate Scholar",
+          affiliation: demoRole === "faculty" ? "Faculty of Cognitive Science & Archive Fellow" : "Undergraduate Scholar &middot; Academic Archive",
         });
         onAuth(user);
       } catch (regErr: any) {
-        setError("Failed to create demo account: " + (regErr.message || "Unknown error"));
+        const regMsg = regErr.message || "Unknown error";
+        if (
+          regMsg.includes("Cannot connect") ||
+          regMsg.includes("not reached") ||
+          regMsg.includes("404") ||
+          regMsg.includes("received HTML") ||
+          regMsg.includes("Failed to fetch")
+        ) {
+          setShowServerConfig(true);
+        }
+        setError("Failed to authenticate demo account: " + regMsg);
       }
     } finally {
       setLoading(false);
@@ -514,6 +629,91 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                 >
                   <span>⚠️</span>
                   <span>{error}</span>
+                </div>
+              )}
+
+              {/* Backend Server Connection Box */}
+              {(showServerConfig || (error && error.includes("404"))) && (
+                <div
+                  style={{
+                    background: "#f8fafc",
+                    border: "1.5px solid #bfdbfe",
+                    borderRadius: "16px",
+                    padding: "1rem 1.15rem",
+                    marginBottom: "1.25rem",
+                    boxShadow: "0 4px 16px rgba(37, 99, 235, 0.08)",
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.45rem" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.45rem" }}>
+                      <span style={{ fontSize: "1rem" }}>📡</span>
+                      <strong style={{ fontSize: "0.86rem", color: "#1e293b" }}>Connect Academic Backend</strong>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowServerConfig(false)}
+                      style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: "0.9rem" }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <p style={{ fontSize: "0.78rem", color: "#475569", margin: "0 0 0.65rem 0", lineHeight: 1.45 }}>
+                    Your frontend needs to communicate with your FastAPI server on Render. Enter your Render backend service URL below:
+                  </p>
+                  <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                    <input
+                      type="url"
+                      value={customServerUrl}
+                      onChange={(e) => setCustomServerUrl(e.target.value)}
+                      placeholder="https://onlybooks-backend.onrender.com"
+                      className="input-minimal"
+                      style={{
+                        flex: 1,
+                        fontSize: "0.8rem",
+                        padding: "0.45rem 0.75rem",
+                        borderRadius: "8px",
+                        border: "1.5px solid #cbd5e1",
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleConnectServer}
+                      disabled={testingServer}
+                      style={{
+                        background: "#2563eb",
+                        color: "#ffffff",
+                        border: "none",
+                        borderRadius: "8px",
+                        padding: "0.45rem 0.9rem",
+                        fontSize: "0.8rem",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                        boxShadow: "0 2px 8px rgba(37,99,235,0.25)",
+                      }}
+                    >
+                      {testingServer ? "Connecting..." : "Connect API"}
+                    </button>
+                  </div>
+                  {serverTestResult && (
+                    <div
+                      style={{
+                        fontSize: "0.76rem",
+                        color: serverTestResult.ok ? "#16a34a" : "#dc2626",
+                        fontWeight: 600,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.35rem",
+                        marginTop: "0.25rem",
+                      }}
+                    >
+                      <span>{serverTestResult.ok ? "✅" : "❌"}</span>
+                      <span>{serverTestResult.ok ? serverTestResult.message : serverTestResult.message}</span>
+                    </div>
+                  )}
+                  <div style={{ fontSize: "0.71rem", color: "#64748b", marginTop: "0.45rem", lineHeight: 1.4 }}>
+                    💡 <em>Tip: You can also set <code>VITE_API_URL</code> in Render/Netlify Environment Variables.</em>
+                  </div>
                 </div>
               )}
 
@@ -1082,8 +1282,33 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                  ───────────────────────────────────────────────────────────── */}
               {!isLogin && stage === "otp" && (
                 <div style={{ display: "flex", flexDirection: "column", gap: "1.2rem", animation: "menuFadeIn 0.22s ease-out" }}>
-                  {/* Simulated OTP Notification Banner with 1-click Auto-fill */}
-                  {activeOtpCode && (
+                  {/* Real Email Dispatched Banner (Real email was sent - Code NOT displayed so user must check their inbox) */}
+                  {!isSimulatedOtp && (
+                    <div
+                      style={{
+                        background: "#f0fdf4",
+                        border: "1.5px solid #86efac",
+                        borderRadius: "14px",
+                        padding: "0.95rem 1.15rem",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.75rem",
+                      }}
+                    >
+                      <span style={{ fontSize: "1.6rem" }}>📧</span>
+                      <div>
+                        <p style={{ margin: 0, fontSize: "0.85rem", fontWeight: 700, color: "#166534" }}>
+                          Verification Code Emailed to Your Inbox
+                        </p>
+                        <p style={{ margin: "0.25rem 0 0", fontSize: "0.74rem", color: "#15803d", lineHeight: 1.45 }}>
+                          A 6-digit verification code has been dispatched to <strong>{email}</strong>. Please check your Gmail/inbox (including Spam folder) and enter the code below to verify your identity.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Simulated OTP Notification Banner (Only when SMTP is not configured on the server) */}
+                  {isSimulatedOtp && activeOtpCode && (
                     <div
                       style={{
                         background: "rgba(37, 99, 235, 0.08)",
@@ -1100,10 +1325,10 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                         <span style={{ fontSize: "1.3rem" }}>📬</span>
                         <div>
                           <p style={{ margin: 0, fontSize: "0.82rem", fontWeight: 700, color: "#1d4ed8" }}>
-                            Academic Dispatch Code: <strong>{activeOtpCode}</strong>
+                            In-App Simulation Code: <strong>{activeOtpCode}</strong>
                           </p>
-                          <p style={{ margin: "0.15rem 0 0", fontSize: "0.72rem", color: "var(--text-secondary)" }}>
-                            Simulated transmission sent to {email}
+                          <p style={{ margin: "0.15rem 0 0", fontSize: "0.71rem", color: "var(--text-secondary)" }}>
+                            SMTP not configured on backend. Add <code>SMTP_HOST</code> &amp; <code>SMTP_PASSWORD</code> in Render to send live emails.
                           </p>
                         </div>
                       </div>
@@ -1120,6 +1345,7 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                           border: "none",
                           cursor: "pointer",
                           boxShadow: "0 2px 8px rgba(37, 99, 235, 0.3)",
+                          whiteSpace: "nowrap",
                         }}
                       >
                         Auto-Fill Code
@@ -1157,7 +1383,9 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                     {otpDigits.map((digit, index) => (
                       <input
                         key={index}
-                        ref={(el) => (otpInputsRef.current[index] = el)}
+                        ref={(el) => {
+                          otpInputsRef.current[index] = el;
+                        }}
                         type="text"
                         inputMode="numeric"
                         maxLength={1}
@@ -1233,10 +1461,33 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
 
             </div>
 
-            {/* Footer note */}
-            <p style={{ textAlign: "center", marginTop: "1.25rem", fontSize: "0.775rem", color: "var(--text-secondary)" }}>
-              🔒 Protected by 256-bit Institutional TLS &middot; OnlyBooks Academic Archive v1.0
-            </p>
+            {/* Footer note & Server config link */}
+            <div style={{ textAlign: "center", marginTop: "1.25rem", display: "flex", flexDirection: "column", gap: "0.45rem", alignItems: "center" }}>
+              <p style={{ margin: 0, fontSize: "0.775rem", color: "var(--text-secondary)" }}>
+                🔒 Protected by 256-bit Institutional TLS &middot; OnlyBooks Academic Archive v1.0
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowServerConfig((prev) => !prev)}
+                style={{
+                  background: "rgba(37, 99, 235, 0.06)",
+                  border: "1px solid rgba(37, 99, 235, 0.15)",
+                  borderRadius: "999px",
+                  padding: "0.25rem 0.75rem",
+                  color: "#2563eb",
+                  fontSize: "0.74rem",
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.35rem",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                <span>📡 Backend: {getApiBaseUrl()}</span>
+                <span style={{ fontSize: "0.68rem", opacity: 0.75 }}>(Change)</span>
+              </button>
+            </div>
           </div>
         </Reveal>
       </main>

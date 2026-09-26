@@ -21,6 +21,7 @@ from ..utils.security import (
     create_access_token,
     get_current_user,
 )
+from ..services.email_service import send_verification_email
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -56,11 +57,23 @@ async def send_otp(payload: SendOTPRequest):
     code = f"{random.randint(100000, 999999)}"
     _otp_store[email] = (code, time.time() + 300) # Valid for 5 minutes
     
-    return {
-        "success": True,
-        "message": f"Verification code dispatched to {email}",
-        "otp": code, # Provided so frontend can show simulated instant delivery in demo/dev mode
-    }
+    # Attempt real email dispatch via SMTP
+    email_dispatched = await send_verification_email(email, code)
+
+    if email_dispatched:
+        return {
+            "success": True,
+            "message": f"Verification code dispatched to {email}. Please check your inbox and spam folder.",
+            "is_simulated": False,
+            "otp": None, # Never expose OTP on screen when real email is sent!
+        }
+    else:
+        return {
+            "success": True,
+            "message": f"Simulated verification code generated for {email} (SMTP not configured on server)",
+            "is_simulated": True,
+            "otp": code, # Provided so testing never breaks if SMTP is not yet configured
+        }
 
 @router.post("/verify-otp")
 async def verify_otp(payload: VerifyOTPRequest):

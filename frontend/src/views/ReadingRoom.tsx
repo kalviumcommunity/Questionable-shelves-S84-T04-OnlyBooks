@@ -219,7 +219,8 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
   const [searchQuery, setSearchQuery] = useState("");
   const [copiedHighlight, setCopiedHighlight] = useState(false);
 
-  function handleCopyQuote(quoteText: string, pageRef?: string) {
+  function handleCopyQuote(quoteText: string | undefined, pageRef?: string) {
+    if (!quoteText) return;
     const pageStr = pageRef || citation.page;
     const formatted = `"${quoteText.trim()}" — ${citation.author} (${citation.year}), ${pageStr} [${citation.callNumber}]`;
     navigator.clipboard.writeText(formatted);
@@ -227,7 +228,8 @@ export default function ReadingRoom({ citation, onClose, documentRecord }: Props
     setTimeout(() => setCopiedHighlight(false), 2000);
   }
 
-  function renderHighlightedText(text: string, query: string) {
+  function renderHighlightedText(text: string | undefined, query: string) {
+    if (!text) return "";
     if (!query || !query.trim()) return text;
     const q = query.trim();
     const parts = text.split(new RegExp(`(${q.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&")})`, "gi"));
