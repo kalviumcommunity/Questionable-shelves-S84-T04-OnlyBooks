@@ -1,4 +1,4 @@
-﻿import { useState, FormEvent } from "react";
+import { useState, FormEvent } from "react";
 import { User, ThemeToggle } from "../App";
 import { authApi } from "../services/api";
 import Reveal from "../components/Reveal";
@@ -58,7 +58,7 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
       {/* Nav */}
       <header
         className="glass-nav"
-        style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.85rem 2rem", zIndex: 10 }}
+        style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.85rem 2rem", position: "relative", zIndex: 50 }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
           <div style={{ width: "28px", height: "28px", borderRadius: "8px", background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center" }}>
