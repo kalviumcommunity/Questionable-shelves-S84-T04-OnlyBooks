@@ -16,6 +16,8 @@ services:
   - type: web
     name: onlybooks-frontend
     runtime: static
+  - type: static
+    name: onlybooks-frontend
     rootDir: frontend
     buildCommand: npm run build
     staticPublishPath: dist
