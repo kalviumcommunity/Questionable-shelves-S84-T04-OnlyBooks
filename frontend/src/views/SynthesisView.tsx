@@ -6,6 +6,8 @@ import { inquiryApi } from "../services/api";
 import Reveal from "../components/Reveal";
 import UserMenu from "../components/UserMenu";
 import NotificationPopover from "../components/NotificationPopover";
+import ExportBibliographyModal from "../components/ExportBibliographyModal";
+import { formatAPA } from "../utils/citationFormatter";
 
 export type { Citation };
 
@@ -86,6 +88,7 @@ export default function SynthesisView({
   const [activeFootnote, setActiveFootnote] = useState<number | null>(null);
   const [openCitation, setOpenCitation] = useState<Citation | null>(null);
   const [followUp, setFollowUp] = useState("");
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [synthesis, setSynthesis] = useState<{
     summaryByline: string;
     paragraphs: { text: string }[];
@@ -524,9 +527,28 @@ export default function SynthesisView({
 
                 {/* References */}
                 <div style={{ marginTop: "4rem", paddingTop: "2rem", borderTop: "1px solid var(--border-light)" }}>
-                  <p style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.16em", color: "var(--text-secondary)", marginBottom: "1.25rem", fontWeight: 600 }}>
-                    Catalog References & Library Holdings
-                  </p>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
+                    <p style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.16em", color: "var(--text-secondary)", margin: 0, fontWeight: 600 }}>
+                      Catalog References & Library Holdings
+                    </p>
+                    <button
+                      onClick={() => setIsExportModalOpen(true)}
+                      className="btn-ghost"
+                      style={{
+                        padding: "0.3rem 0.75rem",
+                        fontSize: "0.7rem",
+                        borderRadius: "6px",
+                        border: "1px solid var(--border-strong)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.4rem",
+                      }}
+                      title="Export entire bibliography (BibTeX, APA, MLA, Chicago)"
+                    >
+                      <span>📥</span>
+                      <span>Export Bibliography</span>
+                    </button>
+                  </div>
                   <ol style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                     {synthesis.citations.map((c, i) => (
                       <Reveal key={c.id} delay={0.05 * i}>
@@ -603,11 +625,19 @@ export default function SynthesisView({
               activeFootnote={activeFootnote}
               onHover={setActiveFootnote}
               onOpen={openDoc}
+              onOpenExportModal={() => setIsExportModalOpen(true)}
               inquiryId={synthesis?.inquiryId}
             />
           )}
         </aside>
       </div>
+
+      <ExportBibliographyModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        citations={synthesis?.citations || []}
+        inquiryTitle={activeQuery.question}
+      />
     </div>
   );
 }
@@ -627,61 +657,33 @@ function BibliographyPanel({
   activeFootnote,
   onHover,
   onOpen,
+  onOpenExportModal,
   inquiryId,
 }: {
   citations: Citation[];
   activeFootnote: number | null;
   onHover: (n: number | null) => void;
   onOpen: (n: number) => void;
+  onOpenExportModal: () => void;
   inquiryId?: string;
 }) {
   const [copied, setCopied] = useState(false);
-  const [exporting, setExporting] = useState(false);
-
-  async function handleExportBibtex() {
-    if (!citations.length) return;
-    setExporting(true);
-    try {
-      let bibText = "";
-      if (inquiryId && inquiryId.startsWith("inq-")) {
-        try {
-          bibText = await inquiryApi.getBibtex(inquiryId);
-        } catch {}
-      }
-      if (!bibText) {
-        bibText = citations
-          .map((c) => {
-            const firstAuthor = c.author.split(",")[0].split("&")[0].trim().split(" ").pop()?.toLowerCase() || "scholar";
-            const cleanAuthor = firstAuthor.replace(/[^a-z0-9]/gi, "");
-            const citeKey = `${cleanAuthor}${c.year}_${c.id}`;
-            const isThesis = c.collectionType.toLowerCase().includes("thesis");
-            const entryType = isThesis ? "phdthesis" : "article";
-            return `@${entryType}{${citeKey},\n  title = {${c.title}},\n  author = {${c.author}},\n  year = {${c.year}},\n  journal = {${c.journal}},\n  pages = {${c.page.replace("Pg.", "").trim()}},\n  note = {OnlyBooks Call Number: ${c.callNumber}}\n}`;
-          })
-          .join("\n\n");
-      }
-      const blob = new Blob([bibText], { type: "text/plain;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${inquiryId || "onlybooks"}_citations.bib`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } finally {
-      setExporting(false);
-    }
-  }
+  const [copiedCardId, setCopiedCardId] = useState<number | null>(null);
 
   function handleCopyCitations() {
     if (!citations.length) return;
-    const formatted = citations
-      .map((c) => `${c.author} (${c.year}). ${c.title}. ${c.journal}, ${c.page}. [${c.callNumber}]`)
-      .join("\n\n");
+    const formatted = citations.map((c) => formatAPA(c)).join("\n\n");
     navigator.clipboard.writeText(formatted);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  function handleCopySingleAPA(e: React.MouseEvent, c: Citation) {
+    e.stopPropagation();
+    const formatted = formatAPA(c);
+    navigator.clipboard.writeText(formatted);
+    setCopiedCardId(c.id);
+    setTimeout(() => setCopiedCardId(null), 1800);
   }
 
   return (
@@ -690,34 +692,61 @@ function BibliographyPanel({
         <p style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.16em", color: "var(--text-primary)", margin: 0, fontWeight: 600 }}>
           Bibliography
         </p>
-        <span style={{ fontSize: "0.65rem", color: "var(--text-secondary)" }}>Click to view document</span>
+        <span style={{ fontSize: "0.65rem", color: "var(--text-secondary)" }}>Click card to view in reader</span>
       </div>
 
-      <div style={{ display: "flex", gap: "0.75rem", marginBottom: "1.5rem" }}>
+      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.5rem" }}>
         <button
-          onClick={handleExportBibtex}
-          disabled={exporting || citations.length === 0}
+          onClick={onOpenExportModal}
+          disabled={citations.length === 0}
           className="btn-ghost"
-          style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", padding: "0.5rem", fontSize: "0.7rem", opacity: citations.length === 0 ? 0.5 : 1, border: "1px solid var(--border-light)" }}
+          style={{
+            flex: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "0.4rem",
+            padding: "0.5rem",
+            fontSize: "0.72rem",
+            opacity: citations.length === 0 ? 0.5 : 1,
+            border: "1px solid var(--border-strong)",
+            borderRadius: "6px",
+          }}
+          title="Export formatted citations (BibTeX, APA, MLA, Chicago)"
         >
           <span>📥</span>
-          <span>{exporting ? "Exporting…" : "BibTeX"}</span>
+          <span>Export All</span>
         </button>
 
         <button
           onClick={handleCopyCitations}
           disabled={citations.length === 0}
           className="btn-ghost"
-          style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", padding: "0.5rem", fontSize: "0.7rem", border: "1px solid var(--border-light)", background: copied ? "var(--text-primary)" : "transparent", color: copied ? "var(--bg-primary)" : "inherit", opacity: citations.length === 0 ? 0.5 : 1 }}
+          style={{
+            flex: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "0.4rem",
+            padding: "0.5rem",
+            fontSize: "0.72rem",
+            border: "1px solid var(--border-light)",
+            borderRadius: "6px",
+            background: copied ? "var(--text-primary)" : "transparent",
+            color: copied ? "var(--bg-primary)" : "inherit",
+            opacity: citations.length === 0 ? 0.5 : 1,
+          }}
+          title="Copy all citations in APA format"
         >
           <span>{copied ? "✓" : "📋"}</span>
-          <span>{copied ? "Copied!" : "Copy"}</span>
+          <span>{copied ? "Copied!" : "Copy APA"}</span>
         </button>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
         {citations.map((c) => {
           const highlighted = activeFootnote === c.id;
+          const isCardCopied = copiedCardId === c.id;
           return (
             <div
               key={c.id}
@@ -725,7 +754,15 @@ function BibliographyPanel({
               onMouseEnter={() => onHover(c.id)}
               onMouseLeave={() => onHover(null)}
               onClick={() => onOpen(c.id)}
-              style={{ padding: "1rem", background: highlighted ? "var(--accent-light)" : "transparent", border: "1px solid", borderColor: highlighted ? "var(--border-strong)" : "var(--border-light)", borderRadius: "8px", cursor: "pointer" }}
+              style={{
+                padding: "1rem",
+                background: highlighted ? "var(--accent-light)" : "transparent",
+                border: "1px solid",
+                borderColor: highlighted ? "var(--border-strong)" : "var(--border-light)",
+                borderRadius: "8px",
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+              }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
                 <span style={{ fontSize: "0.55rem", fontWeight: 600, color: "var(--text-primary)", border: "1px solid var(--border-strong)", padding: "0.1rem 0.4rem", borderRadius: "12px", background: "var(--accent-light)" }}>
@@ -745,9 +782,26 @@ function BibliographyPanel({
               
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "0.5rem", borderTop: "1px solid var(--border-light)" }}>
                 <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>{c.author} · {c.year}</span>
-                <span style={{ fontSize: "0.6rem", fontWeight: 600, color: "var(--text-primary)", background: "var(--accent-light)", padding: "0.2rem 0.5rem", borderRadius: "12px" }}>
-                  {c.page}
-                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                  <button
+                    onClick={(e) => handleCopySingleAPA(e, c)}
+                    className="btn-ghost"
+                    style={{
+                      padding: "2px 6px",
+                      fontSize: "0.6rem",
+                      borderRadius: "4px",
+                      border: "1px solid var(--border-subtle)",
+                      background: isCardCopied ? "var(--text-primary)" : "transparent",
+                      color: isCardCopied ? "var(--bg-primary)" : "var(--text-secondary)",
+                    }}
+                    title="Copy APA reference for this document"
+                  >
+                    {isCardCopied ? "✓ Copied" : "Cite"}
+                  </button>
+                  <span style={{ fontSize: "0.6rem", fontWeight: 600, color: "var(--text-primary)", background: "var(--accent-light)", padding: "0.2rem 0.5rem", borderRadius: "12px" }}>
+                    {c.page}
+                  </span>
+                </div>
               </div>
             </div>
           );

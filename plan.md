@@ -364,41 +364,73 @@ The React frontend maintains its design:
 
 ---
 
+---
+
 ## 9. Step-by-Step Implementation Roadmap
 
-### Phase 1: Backend Foundation & API Skeleton
-- [ ] Initialize `backend/` directory with `pyproject.toml` or `requirements.txt`.
-- [ ] Configure `fastapi`, `uvicorn`, `pydantic`, `sqlalchemy`, `aiosqlite`, and `python-dotenv`.
-- [ ] Create CORS-enabled FastAPI app (`backend/app/main.py`) allowing `http://localhost:5173`.
-- [ ] Implement database models (`User`, `Document`, `Inquiry`, `Synthesis`, `Citation`).
-- [ ] Implement seed data script to populate initial university catalog and seed inquiries.
+### Phase 1: Backend Foundation & API Skeleton (Complete)
+- [x] Initialize `backend/` directory with `pyproject.toml` or `requirements.txt`.
+- [x] Configure `fastapi`, `uvicorn`, `pydantic`, `sqlalchemy`, `aiosqlite`, and `python-dotenv`.
+- [x] Create CORS-enabled FastAPI app (`backend/app/main.py`) allowing `http://localhost:5173`.
+- [x] Implement database models (`User`, `Document`, `Inquiry`, `Synthesis`, `Citation`).
+- [x] Implement seed data script to populate initial university catalog and seed inquiries.
 
-### Phase 2: Vector Store & Ingestion Pipeline
-- [ ] Install `chromadb`, `pymupdf` (`fitz`), and embedding libraries.
-- [ ] Create `backend/app/services/ingestion.py` for PDF parsing and page-level chunking.
-- [ ] Initialize persistent ChromaDB vector store under `backend/data/chroma/`.
-- [ ] Ingest initial seed university documents (Philosophy of Science, Cognitive Neuroscience, Constitutional Law, Earth Systems).
+### Phase 2: Vector Store & Ingestion Pipeline (Complete)
+- [x] Install `rank-bm25`, `pypdf`, and dense vector indexer libraries.
+- [x] Create `backend/app/services/ingestion_service.py` for PDF/text parsing and page-level chunking.
+- [x] Implement persistent SQLite and in-memory dynamic vector store with cross-session indexing.
+- [x] Ingest initial seed university documents (Philosophy of Science, Cognitive Neuroscience, Constitutional Law, Earth Systems).
 
-### Phase 3: Hybrid Search & Synthesis Engine
-- [ ] Implement BM25 lexical index (`backend/app/services/retrieval.py`).
-- [ ] Implement Reciprocal Rank Fusion to merge vector similarity and BM25 results.
-- [ ] Implement Gemini / LLM synthesis service (`backend/app/services/synthesizer.py`) with strict footnote marker mapping (`¹`, `²`, `³`).
-- [ ] Connect `POST /api/inquiries/synthesize` endpoint to return grounded syntheses and citations.
+### Phase 3: Hybrid Search & Synthesis Engine (Complete)
+- [x] Implement BM25 lexical index (`backend/app/services/bm25_indexer.py`).
+- [x] Implement Reciprocal Rank Fusion (RRF) to merge vector similarity and BM25 results (`backend/app/services/hybrid_retriever.py`).
+- [x] Implement Two-Stage Cross-Encoder Relevance Reranker Pipeline (`backend/app/services/reranker.py`).
+- [x] Implement synthesis service with strict footnote marker mapping (`¹`, `²`, `³`) and citation guardrails.
+- [x] Connect `POST /api/inquiries/synthesize` and SSE streaming `POST /api/inquiries/synthesize/stream` endpoints.
 
-### Phase 4: Frontend-Backend Integration
-- [ ] Create `frontend/src/services/api.ts` connecting all API endpoints.
-- [ ] Wire `AuthPage.tsx` to `/api/auth`.
-- [ ] Wire `ResearchPortal.tsx` to `/api/catalog` and live inquiry submission.
-- [ ] Wire `SynthesisView.tsx` and `ReadingRoom.tsx` to `/api/inquiries/synthesize` and `/api/documents/{id}/reading-room`.
-- [ ] Add loading indicators and skeleton states during synthesis generation.
+### Phase 4: Frontend-Backend Integration (Complete)
+- [x] Create `frontend/src/services/api.ts` connecting all API endpoints.
+- [x] Wire `AuthPage.tsx` to `/api/auth` with Institutional SSO and local authentication.
+- [x] Wire `ResearchPortal.tsx` to `/api/catalog` metrics, acquisitions filtering, and inquiry submission.
+- [x] Wire `SynthesisView.tsx` and `ReadingRoom.tsx` to `/api/inquiries/synthesize` and `/api/documents/{id}/reading-room`.
+- [x] Add loading indicators, skeleton states, and real-time SSE streaming typewriter rendering.
 
-### Phase 5: Document Deposit & Library Catalog Management
-- [ ] Create document upload modal in frontend for researchers/librarians.
-- [ ] Implement `POST /api/documents/upload` in backend with background parsing and vector indexing.
-- [ ] Verify that newly uploaded PDFs can immediately be cited in subsequent inquiries.
+### Phase 5: Document Deposit & Library Catalog Management (Complete)
+- [x] Create document deposit and upload modal (`DepositModal.tsx`) with drag-and-drop file upload and BibTeX support.
+- [x] Implement `POST /api/catalog/deposit` and `POST /api/catalog/upload` with background parsing and vector indexing.
+- [x] Verify that newly uploaded PDFs and manuscripts are immediately indexed and retrievable without server restarts.
 
-### Phase 6: Automated Testing, Polish & Documentation
-- [ ] Run backend unit tests (`pytest backend/tests`).
-- [ ] Verify frontend build (`pnpm run build`).
-- [ ] Create `start.bat` / `docker-compose.yml` for unified 1-click startup.
-- [ ] Commit all completed source code and push to `origin main`.
+### Phase 6: Automated Testing, Polish & Containerization (Complete)
+- [x] Run and maintain backend unit tests (`pytest backend/tests` — 25/25 passing).
+- [x] Verify frontend production build (`npm run build` / `pnpm run build` — 0 errors).
+- [x] Implement Docker containerization (`backend/Dockerfile`, `frontend/Dockerfile`, `docker-compose.yml`).
+- [x] Provide unified startup scripts (`start.bat`, `start.ps1`).
+
+---
+
+## 10. Advanced Scholarly Capabilities Roadmap (Execution Phase by Phase)
+
+Each phase below is structured as an isolated, fully tested milestone suitable for dedicated feature branches and PRs:
+
+### Phase 7: Live Gemini LLM Synthesis Engine (PR 1) (Complete)
+- [x] Add Gemini 1.5 Flash / Pro API client support in `backend/app/services/synthesizer.py`.
+- [x] Support `GEMINI_API_KEY` configuration with graceful automatic fallback to the deterministic academic generator when offline or unconfigured.
+- [x] Implement SSE token-by-token streaming from Gemini with dynamic superscript footnote insertion.
+- [x] Add unit tests verifying Gemini prompt construction, fallback safety, and guardrail validation (`backend/tests/test_gemini_synthesis.py`).
+
+### Phase 8: Academic Citation & Bibliography Exporter (PR 2) (Complete)
+- [x] Add multi-format citation generator utility supporting BibTeX, APA 7th, MLA 9th, and Chicago styles (`frontend/src/utils/citationFormatter.ts`).
+- [x] Add "Export Citations" modal (`ExportBibliographyModal.tsx`) and "Copy Citation" quick action in `SynthesisView.tsx`.
+- [x] Add downloadable `.bib` file export in `ReadingRoom.tsx` and bibliography cards.
+- [x] Provide toast notifications confirming citation copy to clipboard.
+
+### Phase 9: Reading Room Deep Search & Passage Annotations (PR 3) (Complete)
+- [x] Implement in-document keyword jump and search within the Reading Room (`ReadingRoom.tsx`).
+- [x] Add highlight coordinates toggle and direct page quote copying with formatted academic reference.
+- [x] Support chapter quick-jumping with reading progress indicator.
+
+### Phase 10: Catalog Advanced Filtering, Sorting & Search Analytics (PR 4) (Complete)
+- [x] Add publication year range filtering, author search, and multi-field query parsing in `catalog.py`.
+- [x] Add sorting (newest, call number, page count, relevance) in `ResearchPortal.tsx`.
+- [x] Update catalog metrics and search result counts to reflect dynamic query distributions.
+

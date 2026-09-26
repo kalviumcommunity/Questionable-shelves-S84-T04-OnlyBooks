@@ -25,7 +25,7 @@ export default function ResearchPortal({
 
   return (
     <div className="flex flex-col min-h-screen w-full text-text relative">
-      {/* ── Cleaned Navigation Header (Keep this intact) ── */}
+      {/* ── Cleaned Navigation Header ── */}
       <header className="glass-nav flex items-center justify-between px-6 py-3 flex-shrink-0 relative z-50">
         <button
           onClick={onOpenGuide}
