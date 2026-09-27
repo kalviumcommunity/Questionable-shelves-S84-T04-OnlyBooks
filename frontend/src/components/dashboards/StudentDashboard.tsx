@@ -131,10 +131,15 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
           box-shadow: 0 0 0 3px var(--accent-ring), inset 0 2px 4px rgba(0,0,0,0.02);
         }
         body.dark .search-input {
-          background: rgba(255,255,255,0.06);
-          border-color: rgba(255,255,255,0.14);
+          background: rgba(14, 18, 26, 0.85);
+          border-color: rgba(255, 255, 255, 0.16);
+          color: #f8fafc;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
         }
-        body.dark .search-input:focus { border-color: var(--accent); }
+        body.dark .search-input:focus {
+          border-color: #f8fafc;
+          box-shadow: 0 0 0 3px rgba(248, 250, 252, 0.15), 0 4px 24px rgba(0, 0, 0, 0.6);
+        }
         .search-submit-btn {
           position: absolute;
           right: 0.5rem;

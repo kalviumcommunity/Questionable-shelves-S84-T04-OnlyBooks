@@ -71,10 +71,9 @@ body {
 
 body.dark {
   color-scheme: dark;
-  background: 
-    linear-gradient(rgba(10, 12, 18, 0.88), rgba(8, 10, 15, 0.94)),
-    url('/bg-bubbles.jpg') no-repeat center center fixed;
+  background: url('/bg-bubbles-dark.jpg') no-repeat center center fixed;
   background-size: 115% 115%;
+  animation: bgPan 90s linear infinite;
 }
 
 @keyframes bgPan {
@@ -256,9 +255,9 @@ body.dark .glass-panel-hover:hover {
 }
 
 body.dark .glass-nav {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.1);
-  box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+  background: rgba(14, 18, 26, 0.82);
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6);
 }
 
 /* ── Floating Animation ───────────────────────────── */
