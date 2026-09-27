@@ -35,22 +35,22 @@
 }
 
 body.dark {
-  --bg-primary: #080808;
-  --bg-secondary: #111111;
+  --bg-primary: #0a0c10;
+  --bg-secondary: #12151c;
   --text-primary: #F8FAFC;
   --text-secondary: #94A3B8;
-  --border-light: rgba(255, 255, 255, 0.07);
+  --border-light: rgba(255, 255, 255, 0.08);
   --border-strong: rgba(255, 255, 255, 0.18);
 
-  --glass-bg: rgba(255, 255, 255, 0.03);
-  --glass-hover: rgba(255, 255, 255, 0.07);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.65), inset 0 1px 2px rgba(255, 255, 255, 0.08);
-  --glass-shadow-hover: 0 16px 48px rgba(0, 0, 0, 0.8), inset 0 1px 2px rgba(255, 255, 255, 0.14);
+  --glass-bg: rgba(18, 22, 30, 0.82);
+  --glass-hover: rgba(26, 31, 42, 0.9);
+  --glass-shadow: 0 16px 48px rgba(0, 0, 0, 0.7), inset 0 1px 2px rgba(255, 255, 255, 0.08);
+  --glass-shadow-hover: 0 24px 64px rgba(0, 0, 0, 0.85), inset 0 1px 2px rgba(255, 255, 255, 0.14);
 
   --accent: #F8FAFC;
   --accent-hover: #E2E8F0;
-  --accent-light: rgba(248, 250, 252, 0.07);
-  --accent-ring: rgba(248, 250, 252, 0.12);
+  --accent-light: rgba(248, 250, 252, 0.08);
+  --accent-ring: rgba(248, 250, 252, 0.15);
 }
 
 html, body, #root {
@@ -64,9 +64,17 @@ body {
   color: var(--text-primary);
   font-family: var(--font-sans);
   margin: 0;
-  transition: background 0.3s ease, color 0.3s ease;
+  transition: background 0.4s ease, color 0.3s ease;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+body.dark {
+  color-scheme: dark;
+  background: 
+    linear-gradient(rgba(10, 12, 18, 0.88), rgba(8, 10, 15, 0.94)),
+    url('/bg-bubbles.jpg') no-repeat center center fixed;
+  background-size: 115% 115%;
 }
 
 @keyframes bgPan {
@@ -75,6 +83,125 @@ body {
   50%  { background-position: 50% 100%; }
   75%  { background-position: 100% 0%; }
   100% { background-position: 50% 50%; }
+}
+
+/* ── Auth Card & Monochrome Design System ─────────── */
+.auth-card {
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(28px) saturate(1.4);
+  -webkit-backdrop-filter: blur(28px) saturate(1.4);
+  border: 1.5px solid rgba(0, 0, 0, 0.08);
+  border-radius: 24px;
+  padding: 2rem;
+  box-shadow: 0 28px 72px rgba(15, 23, 42, 0.1), 0 4px 12px rgba(15, 23, 42, 0.03);
+  transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+body.dark .auth-card {
+  background: rgba(16, 20, 28, 0.92);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 28px 72px rgba(0, 0, 0, 0.7), 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.auth-btn-primary {
+  width: 100%;
+  padding: 0.85rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border-radius: 12px;
+  border: 1.5px solid transparent;
+  background: #0f172a;
+  color: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.2);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  font-family: var(--font-sans);
+}
+
+.auth-btn-primary:hover:not(:disabled) {
+  background: #1e293b;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.3);
+}
+
+.auth-btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+body.dark .auth-btn-primary {
+  background: #f8fafc;
+  color: #0f172a;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+}
+
+body.dark .auth-btn-primary:hover:not(:disabled) {
+  background: #ffffff;
+  box-shadow: 0 6px 20px rgba(255, 255, 255, 0.25);
+}
+
+.auth-btn-primary:disabled {
+  background: #94a3b8;
+  color: #f1f5f9;
+  cursor: not-allowed;
+  box-shadow: none;
+  opacity: 0.7;
+}
+
+body.dark .auth-btn-primary:disabled {
+  background: #334155;
+  color: #64748b;
+  opacity: 0.6;
+}
+
+.auth-tabs-container {
+  display: flex;
+  background: rgba(15, 23, 42, 0.05);
+  border-radius: 12px;
+  padding: 4px;
+  margin-bottom: 1.75rem;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+body.dark .auth-tabs-container {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.auth-tab-btn {
+  flex: 1;
+  padding: 0.6rem;
+  border-radius: 9px;
+  font-size: 0.84rem;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.auth-tab-btn.active {
+  background: #0f172a;
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15);
+}
+
+body.dark .auth-tab-btn.active {
+  background: #f8fafc;
+  color: #0f172a;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+body.dark select.input-minimal option {
+  background: #12151c;
+  color: #f8fafc;
 }
 
 /* ── Glass Utilities ──────────────────────────────── */

@@ -529,21 +529,21 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
               width: "30px",
               height: "30px",
               borderRadius: "8px",
-              background: "#2563eb",
+              background: "var(--accent)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              boxShadow: "0 2px 8px rgba(37,99,235,0.35)",
+              boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
             }}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke="#ffffff">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke="var(--bg-secondary)">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
             </svg>
           </div>
           <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "1.15rem", letterSpacing: "-0.02em", color: "var(--text-primary)" }}>
             OnlyBooks
           </span>
-          <span style={{ fontSize: "0.68rem", fontWeight: 600, color: "#2563eb", background: "rgba(37,99,235,0.1)", padding: "0.15rem 0.5rem", borderRadius: "999px", letterSpacing: "0.05em", textTransform: "uppercase" }}>
+          <span style={{ fontSize: "0.68rem", fontWeight: 600, color: "var(--text-secondary)", background: "var(--accent-light)", border: "1px solid var(--border-light)", padding: "0.15rem 0.5rem", borderRadius: "999px", letterSpacing: "0.05em", textTransform: "uppercase" }}>
             Academic Archive
           </span>
         </div>
@@ -570,8 +570,8 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
               transition: "all 0.18s ease",
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.color = "#2563eb";
-              e.currentTarget.style.borderColor = "#93c5fd";
+              e.currentTarget.style.color = "var(--text-primary)";
+              e.currentTarget.style.borderColor = "var(--border-strong)";
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.color = "var(--text-secondary, #64748b)";
@@ -597,15 +597,16 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                   width: "56px",
                   height: "56px",
                   borderRadius: "16px",
-                  background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
+                  background: "var(--accent)",
+                  color: "var(--bg-secondary)",
                   display: "inline-flex",
                   alignItems: "center",
                   justifyContent: "center",
                   marginBottom: "1rem",
-                  boxShadow: "0 10px 28px rgba(37, 99, 235, 0.32)",
+                  boxShadow: "0 10px 28px rgba(0, 0, 0, 0.18)",
                 }}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="#ffffff">
+                <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
                 </svg>
               </div>
@@ -626,28 +627,10 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
             </div>
 
             {/* Card Shell */}
-            <div
-              style={{
-                background: "rgba(255, 255, 255, 0.96)",
-                backdropFilter: "blur(24px) saturate(1.4)",
-                WebkitBackdropFilter: "blur(24px) saturate(1.4)",
-                border: "1.5px solid rgba(255, 255, 255, 0.95)",
-                borderRadius: 24,
-                padding: "2rem",
-                boxShadow: "0 28px 72px rgba(15, 23, 42, 0.12), 0 4px 12px rgba(15, 23, 42, 0.04)",
-              }}
-            >
+            <div className="auth-card">
               {/* Tab switcher: Only shown when not in OTP stage */}
               {stage === "form" && (
-                <div
-                  style={{
-                    display: "flex",
-                    background: "rgba(15, 23, 42, 0.05)",
-                    borderRadius: "12px",
-                    padding: "4px",
-                    marginBottom: "1.75rem",
-                  }}
-                >
+                <div className="auth-tabs-container">
                   {[
                     { id: true, label: "Sign In" },
                     { id: false, label: "Sign Up" },
@@ -660,22 +643,10 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                         onClick={() => {
                           setIsLogin(tab.id);
                           setError(null);
+                          setEmailExistsWarning(false);
                           setStage("form");
                         }}
-                        style={{
-                          flex: 1,
-                          padding: "0.6rem",
-                          border: active ? "1px solid rgba(37, 99, 235, 0.2)" : "1px solid transparent",
-                          borderRadius: "10px",
-                          fontSize: "0.83rem",
-                          fontWeight: active ? 600 : 500,
-                          fontFamily: "var(--font-sans)",
-                          cursor: "pointer",
-                          transition: "all 0.18s ease",
-                          background: active ? "#FFFFFF" : "transparent",
-                          color: active ? "#1d4ed8" : "var(--text-secondary)",
-                          boxShadow: active ? "0 2px 8px rgba(37, 99, 235, 0.1)" : "none",
-                        }}
+                        className={`auth-tab-btn ${active ? "active" : ""}`}
                       >
                         {tab.label}
                       </button>
@@ -688,9 +659,9 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
               {error && (
                 <div
                   style={{
-                    background: error.toLowerCase().includes("already") ? "#fffbeb" : "#fef2f2",
-                    border: `1.5px solid ${error.toLowerCase().includes("already") ? "#fde68a" : "#fecaca"}`,
-                    color: error.toLowerCase().includes("already") ? "#92400e" : "#dc2626",
+                    background: error.toLowerCase().includes("already") ? "var(--accent-light)" : "rgba(239, 68, 68, 0.1)",
+                    border: `1.5px solid ${error.toLowerCase().includes("already") ? "var(--border-strong)" : "rgba(239, 68, 68, 0.3)"}`,
+                    color: error.toLowerCase().includes("already") ? "var(--text-primary)" : "#ef4444",
                     padding: "0.85rem 1rem",
                     borderRadius: "14px",
                     fontSize: "0.82rem",
@@ -716,19 +687,19 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                         }}
                         style={{
                           padding: "0.45rem 0.95rem",
-                          background: "#2563eb",
-                          color: "#ffffff",
+                          background: "var(--accent)",
+                          color: "var(--bg-primary)",
                           border: "none",
                           borderRadius: "8px",
                           fontSize: "0.78rem",
                           fontWeight: 600,
                           cursor: "pointer",
-                          boxShadow: "0 2px 8px rgba(37, 99, 235, 0.28)",
+                          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.2)",
                         }}
                       >
                         Switch to Sign In →
                       </button>
-                      <span style={{ fontSize: "0.74rem", color: "#78350f" }}>
+                      <span style={{ fontSize: "0.74rem", color: "var(--text-secondary)" }}>
                         Your institutional account is already created.
                       </span>
                     </div>
@@ -740,29 +711,29 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
               {(showServerConfig || (error && error.includes("404"))) && (
                 <div
                   style={{
-                    background: "#f8fafc",
-                    border: "1.5px solid #bfdbfe",
+                    background: "var(--bg-secondary)",
+                    border: "1.5px solid var(--border-strong)",
                     borderRadius: "16px",
                     padding: "1rem 1.15rem",
                     marginBottom: "1.25rem",
-                    boxShadow: "0 4px 16px rgba(37, 99, 235, 0.08)",
+                    boxShadow: "var(--glass-shadow)",
                   }}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.45rem" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "0.45rem" }}>
                       <span style={{ fontSize: "1rem" }}>📡</span>
-                      <strong style={{ fontSize: "0.86rem", color: "#1e293b" }}>Connect Academic Backend</strong>
+                      <strong style={{ fontSize: "0.86rem", color: "var(--text-primary)" }}>Connect Academic Backend</strong>
                     </div>
                     <button
                       type="button"
                       onClick={() => setShowServerConfig(false)}
-                      style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: "0.9rem" }}
+                      style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", fontSize: "0.9rem" }}
                     >
                       ✕
                     </button>
                   </div>
-                  <p style={{ fontSize: "0.78rem", color: "#475569", margin: "0 0 0.65rem 0", lineHeight: 1.45 }}>
-                    Your frontend needs to communicate with your FastAPI server on Render. Enter your Render backend service URL below:
+                  <p style={{ fontSize: "0.78rem", color: "var(--text-secondary)", margin: "0 0 0.65rem 0", lineHeight: 1.45 }}>
+                    Your frontend communicates with your FastAPI backend. Verify or update your Render backend URL below:
                   </p>
                   <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.5rem" }}>
                     <input
@@ -776,7 +747,6 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                         fontSize: "0.8rem",
                         padding: "0.45rem 0.75rem",
                         borderRadius: "8px",
-                        border: "1.5px solid #cbd5e1",
                       }}
                     />
                     <button
@@ -784,8 +754,8 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                       onClick={handleConnectServer}
                       disabled={testingServer}
                       style={{
-                        background: "#2563eb",
-                        color: "#ffffff",
+                        background: "var(--accent)",
+                        color: "var(--bg-primary)",
                         border: "none",
                         borderRadius: "8px",
                         padding: "0.45rem 0.9rem",
@@ -793,7 +763,7 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                         fontWeight: 600,
                         cursor: "pointer",
                         whiteSpace: "nowrap",
-                        boxShadow: "0 2px 8px rgba(37,99,235,0.25)",
+                        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
                       }}
                     >
                       {testingServer ? "Connecting..." : "Connect API"}
@@ -803,7 +773,7 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                     <div
                       style={{
                         fontSize: "0.76rem",
-                        color: serverTestResult.ok ? "#16a34a" : "#dc2626",
+                        color: serverTestResult.ok ? "var(--success)" : "var(--danger)",
                         fontWeight: 600,
                         display: "flex",
                         alignItems: "center",
@@ -815,7 +785,7 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                       <span>{serverTestResult.ok ? serverTestResult.message : serverTestResult.message}</span>
                     </div>
                   )}
-                  <div style={{ fontSize: "0.71rem", color: "#64748b", marginTop: "0.45rem", lineHeight: 1.4 }}>
+                  <div style={{ fontSize: "0.71rem", color: "var(--text-secondary)", marginTop: "0.45rem", lineHeight: 1.4 }}>
                     💡 <em>Tip: You can also set <code>VITE_API_URL</code> in Render/Netlify Environment Variables.</em>
                   </div>
                 </div>
@@ -825,9 +795,9 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
               {successMsg && (
                 <div
                   style={{
-                    background: "#eff6ff",
-                    border: "1px solid #bfdbfe",
-                    color: "#1d4ed8",
+                    background: "var(--accent-light)",
+                    border: "1px solid var(--border-strong)",
+                    color: "var(--text-primary)",
                     padding: "0.75rem 1rem",
                     borderRadius: "12px",
                     fontSize: "0.82rem",
@@ -870,7 +840,7 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        style={{ background: "transparent", border: "none", color: "#2563eb", fontSize: "0.74rem", cursor: "pointer", fontWeight: 500 }}
+                        style={{ background: "transparent", border: "none", color: "var(--text-secondary)", fontSize: "0.74rem", cursor: "pointer", fontWeight: 500 }}
                       >
                         {showPassword ? "Hide" : "Show"}
                       </button>
@@ -889,19 +859,8 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                   <button
                     type="submit"
                     disabled={loading}
-                    style={{
-                      marginTop: "0.5rem",
-                      padding: "0.8rem",
-                      fontSize: "0.9rem",
-                      fontWeight: 600,
-                      borderRadius: "12px",
-                      border: "none",
-                      background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
-                      color: "#FFFFFF",
-                      cursor: loading ? "not-allowed" : "pointer",
-                      boxShadow: "0 4px 14px rgba(37, 99, 235, 0.35)",
-                      transition: "all 0.2s ease",
-                    }}
+                    className="auth-btn-primary"
+                    style={{ marginTop: "0.5rem" }}
                   >
                     {loading ? "Authenticating Session…" : "Sign In to Archive Console"}
                   </button>
@@ -916,25 +875,7 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                         type="button"
                         onClick={() => demoLogin("student@university.edu", "demo123", "Demo Student", "student")}
                         disabled={loading}
-                        style={{
-                          flex: 1,
-                          padding: "0.65rem 0.5rem",
-                          border: "1.5px solid var(--border-strong)",
-                          borderRadius: "10px",
-                          background: "#FFFFFF",
-                          cursor: "pointer",
-                          fontSize: "0.78rem",
-                          fontFamily: "var(--font-sans)",
-                          fontWeight: 500,
-                          color: "var(--text-primary)",
-                          transition: "all 0.2s ease",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: "0.4rem",
-                        }}
-                        onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#2563eb")}
-                        onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border-strong)")}
+                        className="auth-demo-btn"
                       >
                         🎓 Student Dashboard
                       </button>
@@ -942,25 +883,7 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                         type="button"
                         onClick={() => demoLogin("faculty@university.edu", "demo123", "Demo Faculty", "faculty")}
                         disabled={loading}
-                        style={{
-                          flex: 1,
-                          padding: "0.65rem 0.5rem",
-                          border: "1.5px solid var(--border-strong)",
-                          borderRadius: "10px",
-                          background: "#FFFFFF",
-                          cursor: "pointer",
-                          fontSize: "0.78rem",
-                          fontFamily: "var(--font-sans)",
-                          fontWeight: 500,
-                          color: "var(--text-primary)",
-                          transition: "all 0.2s ease",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: "0.4rem",
-                        }}
-                        onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#2563eb")}
-                        onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border-strong)")}
+                        className="auth-demo-btn"
                       >
                         🏛️ Faculty Console
                       </button>
@@ -1002,15 +925,15 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                             style={{
                               padding: "0.85rem",
                               borderRadius: "14px",
-                              border: isSelected ? "2px solid #2563eb" : "1.5px solid var(--border-strong)",
-                              background: isSelected ? "#eff6ff" : "rgba(255, 255, 255, 0.7)",
+                              border: isSelected ? "2px solid var(--accent)" : "1.5px solid var(--border-strong)",
+                              background: isSelected ? "var(--accent-light)" : "var(--bg-secondary)",
                               cursor: "pointer",
                               transition: "all 0.18s ease",
-                              boxShadow: isSelected ? "0 4px 12px rgba(37, 99, 235, 0.12)" : "none",
+                              boxShadow: isSelected ? "0 4px 12px var(--accent-ring)" : "none",
                             }}
                           >
                             <div style={{ fontSize: "1.4rem", marginBottom: "0.3rem" }}>{item.icon}</div>
-                            <p style={{ margin: 0, fontWeight: 700, fontSize: "0.84rem", color: isSelected ? "#1d4ed8" : "var(--text-primary)" }}>
+                            <p style={{ margin: 0, fontWeight: 700, fontSize: "0.84rem", color: "var(--text-primary)" }}>
                               {item.title}
                             </p>
                             <p style={{ margin: "0.2rem 0 0", fontSize: "0.72rem", color: "var(--text-secondary)", lineHeight: 1.35 }}>
@@ -1068,10 +991,12 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                               fontSize: "0.7rem",
                               padding: "0.2rem 0.55rem",
                               borderRadius: "999px",
-                              border: institution === inst ? "1px solid #2563eb" : "1px solid var(--border-strong)",
-                              background: institution === inst ? "#eff6ff" : "transparent",
-                              color: institution === inst ? "#1d4ed8" : "var(--text-secondary)",
+                              border: institution === inst ? "1px solid var(--accent)" : "1px solid var(--border-strong)",
+                              background: institution === inst ? "var(--accent)" : "transparent",
+                              color: institution === inst ? "var(--bg-primary)" : "var(--text-secondary)",
+                              fontWeight: institution === inst ? 600 : 400,
                               cursor: "pointer",
+                              transition: "all 0.15s ease",
                             }}
                           >
                             {inst}
@@ -1176,10 +1101,12 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                               fontSize: "0.7rem",
                               padding: "0.2rem 0.55rem",
                               borderRadius: "999px",
-                              border: institution === inst ? "1px solid #2563eb" : "1px solid var(--border-strong)",
-                              background: institution === inst ? "#eff6ff" : "transparent",
-                              color: institution === inst ? "#1d4ed8" : "var(--text-secondary)",
+                              border: institution === inst ? "1px solid var(--accent)" : "1px solid var(--border-strong)",
+                              background: institution === inst ? "var(--accent)" : "transparent",
+                              color: institution === inst ? "var(--bg-primary)" : "var(--text-secondary)",
+                              fontWeight: institution === inst ? 600 : 400,
                               cursor: "pointer",
+                              transition: "all 0.15s ease",
                             }}
                           >
                             {inst}
@@ -1307,7 +1234,7 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                           style={{
                             background: "transparent",
                             border: "none",
-                            color: "#2563eb",
+                            color: "var(--text-primary)",
                             fontSize: "0.75rem",
                             fontWeight: 700,
                             cursor: "pointer",
@@ -1336,7 +1263,7 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                         <button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
-                          style={{ background: "transparent", border: "none", color: "#2563eb", fontSize: "0.72rem", cursor: "pointer" }}
+                          style={{ background: "transparent", border: "none", color: "var(--text-secondary)", fontSize: "0.72rem", cursor: "pointer" }}
                         >
                           {showPassword ? "Hide" : "Show"}
                         </button>
@@ -1414,24 +1341,11 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                   <button
                     type="submit"
                     disabled={loading || isDisposableEmail(email) || emailExistsWarning}
+                    className="auth-btn-primary"
                     style={{
                       marginTop: "0.5rem",
-                      padding: "0.85rem",
-                      fontSize: "0.9rem",
-                      fontWeight: 600,
-                      borderRadius: "12px",
-                      border: "none",
-                      background: emailExistsWarning
-                        ? "#94a3b8"
-                        : "linear-gradient(135deg, #2563eb, #1d4ed8)",
-                      color: "#FFFFFF",
                       cursor: loading || isDisposableEmail(email) || emailExistsWarning ? "not-allowed" : "pointer",
-                      boxShadow: emailExistsWarning ? "none" : "0 4px 14px rgba(37, 99, 235, 0.35)",
-                      transition: "all 0.2s ease",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "0.4rem",
+                      opacity: loading || isDisposableEmail(email) || emailExistsWarning ? 0.6 : 1,
                     }}
                   >
                     {loading
@@ -1452,8 +1366,8 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                   {!isSimulatedOtp && (
                     <div
                       style={{
-                        background: "#f0fdf4",
-                        border: "1.5px solid #86efac",
+                        background: "rgba(34, 197, 94, 0.08)",
+                        border: "1.5px solid rgba(34, 197, 94, 0.3)",
                         borderRadius: "14px",
                         padding: "0.95rem 1.15rem",
                         display: "flex",
@@ -1463,10 +1377,10 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                     >
                       <span style={{ fontSize: "1.6rem" }}>📧</span>
                       <div>
-                        <p style={{ margin: 0, fontSize: "0.85rem", fontWeight: 700, color: "#166534" }}>
+                        <p style={{ margin: 0, fontSize: "0.85rem", fontWeight: 700, color: "var(--text-primary)" }}>
                           Verification Code Emailed to Your Inbox
                         </p>
-                        <p style={{ margin: "0.25rem 0 0", fontSize: "0.74rem", color: "#15803d", lineHeight: 1.45 }}>
+                        <p style={{ margin: "0.25rem 0 0", fontSize: "0.74rem", color: "var(--text-secondary)", lineHeight: 1.45 }}>
                           A 6-digit verification code has been dispatched to <strong>{email}</strong>. Please check your Gmail/inbox (including Spam folder) and enter the code below to verify your identity.
                         </p>
                       </div>
@@ -1477,8 +1391,8 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                   {isSimulatedOtp && activeOtpCode && (
                     <div
                       style={{
-                        background: "rgba(37, 99, 235, 0.08)",
-                        border: "1.5px solid rgba(37, 99, 235, 0.25)",
+                        background: "var(--bg-secondary)",
+                        border: "1.5px solid var(--border-color)",
                         borderRadius: "14px",
                         padding: "0.85rem 1rem",
                         display: "flex",
@@ -1490,7 +1404,7 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                       <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
                         <span style={{ fontSize: "1.3rem" }}>📬</span>
                         <div>
-                          <p style={{ margin: 0, fontSize: "0.82rem", fontWeight: 700, color: "#1d4ed8" }}>
+                          <p style={{ margin: 0, fontSize: "0.82rem", fontWeight: 700, color: "var(--text-primary)" }}>
                             In-App Simulation Code: <strong>{activeOtpCode}</strong>
                           </p>
                           <p style={{ margin: "0.15rem 0 0", fontSize: "0.71rem", color: "var(--text-secondary)" }}>
@@ -1506,16 +1420,8 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                       <button
                         type="button"
                         onClick={() => autoFillOtp(activeOtpCode)}
+                        className="auth-demo-btn"
                         style={{
-                          padding: "0.35rem 0.75rem",
-                          fontSize: "0.75rem",
-                          fontWeight: 600,
-                          borderRadius: "8px",
-                          background: "#2563eb",
-                          color: "#fff",
-                          border: "none",
-                          cursor: "pointer",
-                          boxShadow: "0 2px 8px rgba(37, 99, 235, 0.3)",
                           whiteSpace: "nowrap",
                         }}
                       >
@@ -1538,7 +1444,7 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                       style={{
                         background: "transparent",
                         border: "none",
-                        color: "#2563eb",
+                        color: "var(--text-primary)",
                         fontSize: "0.76rem",
                         cursor: "pointer",
                         fontWeight: 600,
@@ -1570,11 +1476,11 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                           fontSize: "1.45rem",
                           fontWeight: 700,
                           borderRadius: "12px",
-                          border: digit ? "2px solid #2563eb" : "1.5px solid var(--border-strong)",
-                          background: digit ? "#eff6ff" : "#FFFFFF",
-                          color: "#1d4ed8",
+                          border: digit ? "2px solid var(--accent)" : "1.5px solid var(--border-strong)",
+                          background: digit ? "var(--accent-light)" : "var(--bg-secondary)",
+                          color: "var(--text-primary)",
                           outline: "none",
-                          boxShadow: digit ? "0 2px 8px rgba(37, 99, 235, 0.15)" : "none",
+                          boxShadow: digit ? "0 2px 8px rgba(0, 0, 0, 0.1)" : "none",
                           transition: "all 0.18s ease",
                         }}
                       />
@@ -1586,17 +1492,10 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                     type="button"
                     onClick={() => handleVerifyOtpAndRegister()}
                     disabled={loading || otpDigits.join("").length !== 6}
+                    className="auth-btn-primary"
                     style={{
-                      padding: "0.85rem",
-                      fontSize: "0.9rem",
-                      fontWeight: 600,
-                      borderRadius: "12px",
-                      border: "none",
-                      background: otpDigits.join("").length === 6 ? "linear-gradient(135deg, #2563eb, #1d4ed8)" : "rgba(15, 23, 42, 0.12)",
-                      color: otpDigits.join("").length === 6 ? "#FFFFFF" : "rgba(15, 23, 42, 0.4)",
                       cursor: otpDigits.join("").length === 6 && !loading ? "pointer" : "not-allowed",
-                      boxShadow: otpDigits.join("").length === 6 ? "0 4px 14px rgba(37, 99, 235, 0.35)" : "none",
-                      transition: "all 0.2s ease",
+                      opacity: otpDigits.join("").length === 6 ? 1 : 0.5,
                     }}
                   >
                     {loading ? "Verifying & Provisioning Academic Account…" : "Verify Code & Activate Account"}
@@ -1616,7 +1515,7 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                         style={{
                           background: "transparent",
                           border: "none",
-                          color: "#2563eb",
+                          color: "var(--text-primary)",
                           cursor: "pointer",
                           fontWeight: 700,
                           fontSize: "0.78rem",

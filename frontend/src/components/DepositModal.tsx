@@ -185,9 +185,10 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: Props) {
           width: "100%",
           maxWidth: 720,
           maxHeight: "90vh",
-          backgroundColor: "#FAFAFA",
-          border: "1px solid #1C1C1C",
-          boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
+          backgroundColor: "var(--bg-secondary)",
+          border: "1.5px solid var(--border-strong)",
+          borderRadius: 20,
+          boxShadow: "0 28px 72px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.15)",
           display: "flex",
           flexDirection: "column",
           fontFamily: "var(--font-sans)",
@@ -198,8 +199,8 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: Props) {
         <div
           style={{
             padding: "1.25rem 1.75rem",
-            borderBottom: "1px solid #E5E7EB",
-            background: "#FFFFFF",
+            borderBottom: "1px solid var(--border-light)",
+            background: "var(--bg-secondary)",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
@@ -211,13 +212,13 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: Props) {
                 fontFamily: "var(--font-serif)",
                 fontSize: "1.25rem",
                 fontWeight: 600,
-                color: "#0F172A",
+                color: "var(--text-primary)",
                 margin: 0,
               }}
             >
               Deposit Academic Manuscript
             </h2>
-            <p style={{ fontSize: "0.68rem", color: "#6B7280", margin: "0.2rem 0 0" }}>
+            <p style={{ fontSize: "0.68rem", color: "var(--text-secondary)", margin: "0.2rem 0 0" }}>
               OnlyBooks Institutional Archives · Dynamic Chunking & In-Situ Hybrid Indexing
             </p>
           </div>
@@ -276,38 +277,39 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: Props) {
 
               <div
                 style={{
-                  background: "#FFFFFF",
-                  border: "1px solid #E5E7EB",
+                  background: "var(--bg-primary)",
+                  border: "1px solid var(--border-light)",
                   padding: "1rem 1.5rem",
                   maxWidth: 440,
                   margin: "0 auto 2rem",
                   textAlign: "left",
+                  borderRadius: "12px",
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.4rem" }}>
-                  <span style={{ fontSize: "0.68rem", color: "#6B7280" }}>Official Call Number:</span>
-                  <span style={{ fontSize: "0.72rem", fontWeight: 600, color: "#0F172A" }}>{result.call_number}</span>
+                  <span style={{ fontSize: "0.68rem", color: "var(--text-secondary)" }}>Official Call Number:</span>
+                  <span style={{ fontSize: "0.72rem", fontWeight: 600, color: "var(--text-primary)" }}>{result.call_number}</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.4rem" }}>
-                  <span style={{ fontSize: "0.68rem", color: "#6B7280" }}>Collection Holding:</span>
-                  <span style={{ fontSize: "0.72rem", fontWeight: 600, color: "#0F172A" }}>{result.collection_name}</span>
+                  <span style={{ fontSize: "0.68rem", color: "var(--text-secondary)" }}>Collection Holding:</span>
+                  <span style={{ fontSize: "0.72rem", fontWeight: 600, color: "var(--text-primary)" }}>{result.collection_name}</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: "0.68rem", color: "#6B7280" }}>Index Status:</span>
-                  <span style={{ fontSize: "0.72rem", fontWeight: 600, color: "#059669" }}>Active & Citable</span>
+                  <span style={{ fontSize: "0.68rem", color: "var(--text-secondary)" }}>Index Status:</span>
+                  <span style={{ fontSize: "0.72rem", fontWeight: 600, color: "#16a34a" }}>Active & Citable</span>
                 </div>
               </div>
 
               <button
                 onClick={handleReset}
                 style={{
-                  background: "#1C1C1C",
-                  color: "#FAFAFA",
+                  background: "var(--accent)",
+                  color: "var(--bg-primary)",
                   border: "none",
-                  padding: "0.5rem 1.5rem",
-                  fontSize: "0.75rem",
-                  fontWeight: 500,
-                  letterSpacing: "0.04em",
+                  padding: "0.6rem 1.6rem",
+                  borderRadius: "10px",
+                  fontSize: "0.78rem",
+                  fontWeight: 600,
                   cursor: "pointer",
                 }}
               >
@@ -317,7 +319,7 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: Props) {
           ) : (
             <form onSubmit={handleSubmit}>
               {/* Mode Tab Switcher */}
-              <div style={{ display: "flex", borderBottom: "1px solid #E5E7EB", marginBottom: "1.25rem" }}>
+              <div style={{ display: "flex", borderBottom: "1px solid var(--border-light)", marginBottom: "1.25rem" }}>
                 <button
                   type="button"
                   onClick={() => setActiveTab("upload")}
@@ -325,8 +327,8 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: Props) {
                     padding: "0.5rem 1rem",
                     fontSize: "0.74rem",
                     fontWeight: activeTab === "upload" ? 600 : 400,
-                    color: activeTab === "upload" ? "#0F172A" : "#6B7280",
-                    borderBottom: activeTab === "upload" ? "2px solid #0F172A" : "2px solid transparent",
+                    color: activeTab === "upload" ? "var(--text-primary)" : "var(--text-secondary)",
+                    borderBottom: activeTab === "upload" ? "2px solid var(--accent)" : "2px solid transparent",
                     background: "none",
                     borderTop: "none",
                     borderLeft: "none",
@@ -348,8 +350,8 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: Props) {
                     padding: "0.5rem 1rem",
                     fontSize: "0.74rem",
                     fontWeight: activeTab === "manual" ? 600 : 400,
-                    color: activeTab === "manual" ? "#0F172A" : "#6B7280",
-                    borderBottom: activeTab === "manual" ? "2px solid #0F172A" : "2px solid transparent",
+                    color: activeTab === "manual" ? "var(--text-primary)" : "var(--text-secondary)",
+                    borderBottom: activeTab === "manual" ? "2px solid var(--accent)" : "2px solid transparent",
                     background: "none",
                     borderTop: "none",
                     borderLeft: "none",

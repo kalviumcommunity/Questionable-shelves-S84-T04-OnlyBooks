@@ -34,16 +34,27 @@ const SEED_HISTORY: Query[] = [
 
 // Helper to toggle theme globally
 export function ThemeToggle() {
-  const [isDark, setIsDark] = useState(() => document.body.classList.contains("dark"));
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("onlybooks_theme");
+      if (saved) return saved === "dark";
+      return document.body.classList.contains("dark");
+    }
+    return false;
+  });
   
-  const toggle = () => {
-    const next = !isDark;
-    setIsDark(next);
-    if (next) {
+  useEffect(() => {
+    if (isDark) {
       document.body.classList.add("dark");
+      localStorage.setItem("onlybooks_theme", "dark");
     } else {
       document.body.classList.remove("dark");
+      localStorage.setItem("onlybooks_theme", "light");
     }
+  }, [isDark]);
+
+  const toggle = () => {
+    setIsDark((prev) => !prev);
   };
 
   return (

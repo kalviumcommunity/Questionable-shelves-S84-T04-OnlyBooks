@@ -314,15 +314,15 @@ export default function AvatarModal({ user, isOpen, onClose, onAvatarUpdated }: 
           maxHeight: "90vh",
           overflowY: "auto",
           margin: "auto",
-          background: "rgba(255, 255, 255, 0.98)",
+          background: "var(--bg-secondary)",
           backdropFilter: "blur(24px) saturate(1.4)",
           WebkitBackdropFilter: "blur(24px) saturate(1.4)",
-          border: "1.5px solid rgba(255, 255, 255, 0.9)",
+          border: "1.5px solid var(--border-strong)",
           borderRadius: 24,
           padding: "1.75rem",
           display: "flex",
           flexDirection: "column",
-          boxShadow: "0 28px 72px rgba(15, 23, 42, 0.18), 0 4px 12px rgba(15, 23, 42, 0.04), inset 0 2px 4px rgba(255, 255, 255, 0.9)",
+          boxShadow: "0 28px 72px rgba(0, 0, 0, 0.35), 0 4px 12px rgba(0, 0, 0, 0.1)",
           animation: "menuFadeIn 0.22s cubic-bezier(0.16,1,0.3,1) forwards",
         }}
       >
