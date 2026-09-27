@@ -1333,7 +1333,7 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                             In-App Simulation Code: <strong>{activeOtpCode}</strong>
                           </p>
                           <p style={{ margin: "0.15rem 0 0", fontSize: "0.71rem", color: "var(--text-secondary)" }}>
-                            SMTP not configured on backend. Add <code>SMTP_HOST</code> &amp; <code>SMTP_PASSWORD</code> in Render to send live emails.
+                            Email delivery not active. Configure <code>RESEND_API_KEY</code> (Resend.com) to send real mailbox emails.
                           </p>
                           {smtpDebug && (
                             <p style={{ margin: "0.3rem 0 0", fontSize: "0.70rem", color: "#b45309", fontWeight: 600 }}>

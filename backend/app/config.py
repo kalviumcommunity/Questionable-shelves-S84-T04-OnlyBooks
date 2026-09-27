@@ -1,6 +1,10 @@
 import os
+from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List, Optional
+
+BACKEND_DIR = Path(__file__).resolve().parent.parent
+ROOT_DIR = BACKEND_DIR.parent
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "OnlyBooks University Library Archive"
@@ -27,6 +31,7 @@ class Settings(BaseSettings):
 
     # Cloud HTTP Email APIs (Use port 443 HTTPS - works on Render Free Tier where outbound SMTP is blocked)
     RESEND_API_KEY: Optional[str] = os.getenv("RESEND_API_KEY", "")
+    RESEND_FROM_EMAIL: Optional[str] = os.getenv("RESEND_FROM_EMAIL", "")
     BREVO_API_KEY: Optional[str] = os.getenv("BREVO_API_KEY", "")
 
     # CORS origins
@@ -36,6 +41,14 @@ class Settings(BaseSettings):
         "http://localhost:3000",
     ]
 
-    model_config = SettingsConfigDict(case_sensitive=True, env_file=".env")
+    model_config = SettingsConfigDict(
+        case_sensitive=False,
+        env_file=[
+            str(BACKEND_DIR / ".env"),
+            str(ROOT_DIR / ".env"),
+            ".env",
+        ],
+        extra="ignore",
+    )
 
 settings = Settings()

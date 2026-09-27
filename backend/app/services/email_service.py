@@ -118,10 +118,25 @@ async def send_verification_email(to_email: str, code: str) -> tuple[bool, str]:
                 "Authorization": f"Bearer {resend_key}",
                 "Content-Type": "application/json",
             }
-            # If from email not set or not verified, use Resend testing domain
-            sender = settings.SMTP_FROM_EMAIL.strip() if settings.SMTP_FROM_EMAIL else "onboarding@resend.dev"
-            if "<" not in sender and "@" in sender:
-                sender = f"{settings.SMTP_FROM_NAME or 'OnlyBooks'} <{sender}>"
+            # Resolve Resend sender address:
+            # Resend requires either 'onboarding@resend.dev' or a custom verified domain on Resend.
+            # Free webmail providers (@gmail.com, @yahoo.com, etc.) cannot be verified and are rejected by Resend.
+            if settings.RESEND_FROM_EMAIL and settings.RESEND_FROM_EMAIL.strip():
+                sender_addr = settings.RESEND_FROM_EMAIL.strip()
+            elif settings.SMTP_FROM_EMAIL and settings.SMTP_FROM_EMAIL.strip():
+                candidate = settings.SMTP_FROM_EMAIL.strip().lower()
+                unsupported_domains = ("@gmail.com", "@yahoo.com", "@outlook.com", "@hotmail.com", "@icloud.com")
+                if any(candidate.endswith(dom) or f"<{candidate}>".endswith(dom + ">") for dom in unsupported_domains):
+                    sender_addr = "onboarding@resend.dev"
+                else:
+                    sender_addr = settings.SMTP_FROM_EMAIL.strip()
+            else:
+                sender_addr = "onboarding@resend.dev"
+
+            if "<" not in sender_addr and "@" in sender_addr:
+                sender = f"{settings.SMTP_FROM_NAME or 'OnlyBooks Academic Archive'} <{sender_addr}>"
+            else:
+                sender = sender_addr
             
             payload = {
                 "from": sender,
@@ -136,9 +151,20 @@ async def send_verification_email(to_email: str, code: str) -> tuple[bool, str]:
                     logger.info(f"Verification email dispatched to {to_email} via Resend HTTP API")
                     return True, "Email dispatched successfully via Resend API"
                 else:
-                    err_text = resp.text
-                    logger.error(f"Resend API error: {err_text}")
-                    return False, f"Resend API error: {err_text}"
+                    try:
+                        err_json = resp.json()
+                        err_detail = err_json.get("message") or resp.text
+                    except Exception:
+                        err_detail = resp.text
+
+                    if "testing emails" in err_detail.lower():
+                        err_detail = (
+                            f"Resend test domain restriction: onboarding@resend.dev can only deliver to the email "
+                            f"registered on your Resend account. To deliver to {to_email}, either test with your "
+                            f"Resend account email or verify a custom domain at resend.com/domains"
+                        )
+                    logger.error(f"Resend API error: {err_detail}")
+                    return False, f"Resend API error: {err_detail}"
         except Exception as e:
             logger.error(f"Resend API exception: {e}")
             return False, f"Resend API exception: {str(e)}"
