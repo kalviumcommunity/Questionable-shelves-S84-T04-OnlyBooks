@@ -552,6 +552,36 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
             Reader's Guide
           </button>
           <ThemeToggle />
+          <button
+            type="button"
+            onClick={() => setShowServerConfig((prev) => !prev)}
+            title="Server Connection Settings"
+            aria-label="Server Connection Settings"
+            style={{
+              background: "transparent",
+              border: "1px solid var(--border-light, #e2e8f0)",
+              color: "var(--text-secondary, #64748b)",
+              padding: "0.45rem",
+              borderRadius: "10px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              transition: "all 0.18s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = "#2563eb";
+              e.currentTarget.style.borderColor = "#93c5fd";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = "var(--text-secondary, #64748b)";
+              e.currentTarget.style.borderColor = "var(--border-light, #e2e8f0)";
+            }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-.778.099-1.533.284-2.253" />
+            </svg>
+          </button>
         </div>
       </header>
 
@@ -1600,34 +1630,6 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                 </div>
               )}
 
-            </div>
-
-            {/* Footer note & Server config link */}
-            <div style={{ textAlign: "center", marginTop: "1.25rem", display: "flex", flexDirection: "column", gap: "0.45rem", alignItems: "center" }}>
-              <p style={{ margin: 0, fontSize: "0.775rem", color: "var(--text-secondary)" }}>
-                🔒 Protected by 256-bit Institutional TLS &middot; OnlyBooks Academic Archive v1.0
-              </p>
-              <button
-                type="button"
-                onClick={() => setShowServerConfig((prev) => !prev)}
-                style={{
-                  background: "rgba(37, 99, 235, 0.06)",
-                  border: "1px solid rgba(37, 99, 235, 0.15)",
-                  borderRadius: "999px",
-                  padding: "0.25rem 0.75rem",
-                  color: "#2563eb",
-                  fontSize: "0.74rem",
-                  fontWeight: 500,
-                  cursor: "pointer",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "0.35rem",
-                  transition: "all 0.15s ease",
-                }}
-              >
-                <span>📡 Backend: {getApiBaseUrl()}</span>
-                <span style={{ fontSize: "0.68rem", opacity: 0.75 }}>(Change)</span>
-              </button>
             </div>
           </div>
         </Reveal>
