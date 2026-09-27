@@ -207,6 +207,12 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 }
 
 export const authApi = {
+  async checkEmail(email: string): Promise<{ exists: boolean; email: string; message: string }> {
+    return request<{ exists: boolean; email: string; message: string }>(
+      `/auth/check-email?email=${encodeURIComponent(email)}`
+    );
+  },
+
   async sendOtp(email: string): Promise<{ success: boolean; message: string; otp?: string; is_simulated?: boolean; smtp_debug?: string }> {
     return request<{ success: boolean; message: string; otp?: string; is_simulated?: boolean; smtp_debug?: string }>("/auth/send-otp", {
       method: "POST",

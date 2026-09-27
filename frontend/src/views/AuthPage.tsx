@@ -135,6 +135,8 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [emailExistsWarning, setEmailExistsWarning] = useState(false);
+  const [checkingEmail, setCheckingEmail] = useState(false);
 
   // Deployed Backend Server Connection State: auto-show if on remote deployment without configured backend
   const [showServerConfig, setShowServerConfig] = useState(() => {
@@ -188,6 +190,29 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
 
   const otpInputsRef = useRef<(HTMLInputElement | null)[]>([]);
 
+  // Asynchronous check for existing registered email
+  async function checkEmailRegistered(emailToCheck: string) {
+    const clean = emailToCheck.trim().toLowerCase();
+    if (!clean || !clean.includes("@") || clean.length < 5) {
+      setEmailExistsWarning(false);
+      return;
+    }
+    setCheckingEmail(true);
+    try {
+      const res = await authApi.checkEmail(clean);
+      if (res.exists) {
+        setEmailExistsWarning(true);
+        setError("An account with this email address already exists. Please sign in instead.");
+      } else {
+        setEmailExistsWarning(false);
+      }
+    } catch {
+      // Ignore network hiccup on passive pre-check
+    } finally {
+      setCheckingEmail(false);
+    }
+  }
+
   // Resend countdown timer
   useEffect(() => {
     if (stage !== "otp" || resendCooldown <= 0) return;
@@ -238,6 +263,11 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
       return;
     }
 
+    if (emailExistsWarning) {
+      setError("An account with this email address already exists. Please sign in instead.");
+      return;
+    }
+
     if (isDisposableEmail(cleanEmail)) {
       setError("Temporary or disposable email domains are blocked to prevent fake accounts. Please use your academic or permanent email.");
       return;
@@ -270,6 +300,7 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
       setOtpDigits(["", "", "", "", "", ""]);
       setResendCooldown(45);
       setStage("otp");
+      setEmailExistsWarning(false);
       setSuccessMsg(
         simulated
           ? `Verification code generated for ${cleanEmail}`
@@ -278,6 +309,13 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
     } catch (err: any) {
       const msg = err.message || "Failed to dispatch verification code.";
       setError(msg);
+      if (
+        msg.toLowerCase().includes("already registered") ||
+        msg.toLowerCase().includes("already exists") ||
+        msg.toLowerCase().includes("already a user")
+      ) {
+        setEmailExistsWarning(true);
+      }
       if (
         msg.includes("404") ||
         msg.includes("cannot reach") ||
@@ -620,20 +658,51 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
               {error && (
                 <div
                   style={{
-                    background: "#fef2f2",
-                    border: "1px solid #fecaca",
-                    color: "#dc2626",
-                    padding: "0.75rem 1rem",
-                    borderRadius: "12px",
+                    background: error.toLowerCase().includes("already") ? "#fffbeb" : "#fef2f2",
+                    border: `1.5px solid ${error.toLowerCase().includes("already") ? "#fde68a" : "#fecaca"}`,
+                    color: error.toLowerCase().includes("already") ? "#92400e" : "#dc2626",
+                    padding: "0.85rem 1rem",
+                    borderRadius: "14px",
                     fontSize: "0.82rem",
                     marginBottom: "1.25rem",
                     display: "flex",
-                    alignItems: "center",
+                    flexDirection: "column",
                     gap: "0.5rem",
                   }}
                 >
-                  <span>⚠️</span>
-                  <span>{error}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <span>{error.toLowerCase().includes("already") ? "👤" : "⚠️"}</span>
+                    <span style={{ fontWeight: 600 }}>{error}</span>
+                  </div>
+                  {error.toLowerCase().includes("already") && (
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginTop: "0.15rem" }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsLogin(true);
+                          setError(null);
+                          setEmailExistsWarning(false);
+                          setStage("form");
+                        }}
+                        style={{
+                          padding: "0.45rem 0.95rem",
+                          background: "#2563eb",
+                          color: "#ffffff",
+                          border: "none",
+                          borderRadius: "8px",
+                          fontSize: "0.78rem",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          boxShadow: "0 2px 8px rgba(37, 99, 235, 0.28)",
+                        }}
+                      >
+                        Switch to Sign In →
+                      </button>
+                      <span style={{ fontSize: "0.74rem", color: "#78350f" }}>
+                        Your institutional account is already created.
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1159,11 +1228,67 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                       type="email"
                       required
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        if (emailExistsWarning) {
+                          setEmailExistsWarning(false);
+                          setError(null);
+                        }
+                      }}
+                      onBlur={() => checkEmailRegistered(email)}
                       className="input-minimal"
                       placeholder="e.vance@university.edu"
-                      style={{ marginTop: "0.3rem" }}
+                      style={{
+                        marginTop: "0.3rem",
+                        borderColor: emailExistsWarning ? "#dc2626" : undefined,
+                        boxShadow: emailExistsWarning ? "0 0 0 3px rgba(220, 38, 38, 0.12)" : undefined,
+                      }}
                     />
+                    {checkingEmail && (
+                      <p style={{ margin: "0.25rem 0 0", fontSize: "0.72rem", color: "#64748b" }}>
+                        Verifying institutional registry…
+                      </p>
+                    )}
+                    {emailExistsWarning && (
+                      <div
+                        style={{
+                          marginTop: "0.35rem",
+                          background: "#fffbeb",
+                          border: "1px solid #fde68a",
+                          borderRadius: "8px",
+                          padding: "0.45rem 0.75rem",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: "0.5rem",
+                        }}
+                      >
+                        <span style={{ fontSize: "0.75rem", color: "#92400e", fontWeight: 600 }}>
+                          ⚠️ Already a user with this email address.
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsLogin(true);
+                            setError(null);
+                            setEmailExistsWarning(false);
+                            setStage("form");
+                          }}
+                          style={{
+                            background: "transparent",
+                            border: "none",
+                            color: "#2563eb",
+                            fontSize: "0.75rem",
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            textDecoration: "underline",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          Sign In Instead →
+                        </button>
+                      </div>
+                    )}
                     {isDisposableEmail(email) && (
                       <p style={{ margin: "0.3rem 0 0", fontSize: "0.74rem", color: "#dc2626", fontWeight: 500 }}>
                         ⚠️ Temporary/disposable email services are not allowed. Please enter your institutional address.
@@ -1258,7 +1383,7 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                   {/* Continue to OTP verification button */}
                   <button
                     type="submit"
-                    disabled={loading || isDisposableEmail(email)}
+                    disabled={loading || isDisposableEmail(email) || emailExistsWarning}
                     style={{
                       marginTop: "0.5rem",
                       padding: "0.85rem",
@@ -1266,10 +1391,12 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                       fontWeight: 600,
                       borderRadius: "12px",
                       border: "none",
-                      background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
+                      background: emailExistsWarning
+                        ? "#94a3b8"
+                        : "linear-gradient(135deg, #2563eb, #1d4ed8)",
                       color: "#FFFFFF",
-                      cursor: loading || isDisposableEmail(email) ? "not-allowed" : "pointer",
-                      boxShadow: "0 4px 14px rgba(37, 99, 235, 0.35)",
+                      cursor: loading || isDisposableEmail(email) || emailExistsWarning ? "not-allowed" : "pointer",
+                      boxShadow: emailExistsWarning ? "none" : "0 4px 14px rgba(37, 99, 235, 0.35)",
                       transition: "all 0.2s ease",
                       display: "flex",
                       alignItems: "center",
@@ -1277,7 +1404,11 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                       gap: "0.4rem",
                     }}
                   >
-                    {loading ? "Sending Verification Code…" : "Continue to Verification →"}
+                    {loading
+                      ? "Sending Verification Code…"
+                      : emailExistsWarning
+                      ? "Account Already Exists — Please Sign In"
+                      : "Continue to Verification →"}
                   </button>
                 </form>
               )}

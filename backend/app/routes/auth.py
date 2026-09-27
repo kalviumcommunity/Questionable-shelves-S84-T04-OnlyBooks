@@ -42,8 +42,21 @@ DISPOSABLE_DOMAINS = {
     "throwawaymail.com",
 }
 
+@router.get("/check-email")
+async def check_email(email: str, db: AsyncSession = Depends(get_db)):
+    """Check if an institutional email is already registered."""
+    clean_email = email.lower().strip()
+    stmt = select(User).where(User.email == clean_email)
+    result = await db.execute(stmt)
+    existing_user = result.scalars().first()
+    return {
+        "exists": existing_user is not None,
+        "email": clean_email,
+        "message": "An account with this email address already exists." if existing_user else "Email available.",
+    }
+
 @router.post("/send-otp")
-async def send_otp(payload: SendOTPRequest):
+async def send_otp(payload: SendOTPRequest, db: AsyncSession = Depends(get_db)):
     email = payload.email.lower().strip()
     domain = email.split("@")[-1] if "@" in email else ""
     
@@ -52,12 +65,22 @@ async def send_otp(payload: SendOTPRequest):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Temporary or disposable email domains are not permitted for institutional archive registration.",
         )
+
+    # Prevent re-registration: verify if an account already exists with this email address
+    stmt = select(User).where(User.email == email)
+    result = await db.execute(stmt)
+    existing_user = result.scalars().first()
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="An account with this email address is already registered. Please sign in instead.",
+        )
         
     # Generate 6-digit cryptographic-style verification code
     code = f"{random.randint(100000, 999999)}"
     _otp_store[email] = (code, time.time() + 300) # Valid for 5 minutes
     
-    # Attempt real email dispatch via SMTP
+    # Attempt real email dispatch via Resend API or SMTP
     email_dispatched, reason = await send_verification_email(email, code)
 
     if email_dispatched:
