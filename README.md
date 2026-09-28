@@ -94,6 +94,7 @@ docker compose up --build
 #### 1. Backend Setup & Run
 ```bash
 cd backend
+copy .env.example .env        # Then add your Gemini API key to .env (leave blank to use fallback)
 python -m venv venv
 .\venv\Scripts\activate          # On Windows (or 'source venv/bin/activate' on Unix)
 pip install -r requirements.txt
