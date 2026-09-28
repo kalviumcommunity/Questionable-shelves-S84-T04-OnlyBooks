@@ -18,7 +18,7 @@ class Settings(BaseSettings):
 
     # Gemini LLM configuration
     GEMINI_API_KEY: Optional[str] = os.getenv("GEMINI_API_KEY", None)
-    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
     
     # SMTP Email Configuration for Real Verification Delivery
     SMTP_HOST: Optional[str] = os.getenv("SMTP_HOST") or os.getenv("SMPT_HOST", "")
