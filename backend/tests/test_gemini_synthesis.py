@@ -111,6 +111,12 @@ async def test_gemini_live_call_success_mocked(mock_candidates):
                 mock_retriever_fn.return_value = mock_retriever
 
                 response = await synthesizer.synthesize(request, db=None)
+                request_url = mock_client.post.await_args.args[0]
+                request_kwargs = mock_client.post.await_args.kwargs
+                assert "?key=" not in request_url
+                assert request_kwargs["headers"]["x-goog-api-key"] == "test-fake-key-12345"
+                assert "systemInstruction" in request_kwargs["json"]
+                assert "system_instruction" not in request_kwargs["json"]
                 assert len(response.paragraphs) == 2
                 assert "Kuhn emphasizes" in response.paragraphs[0].text
                 assert "¹" in response.paragraphs[0].text
