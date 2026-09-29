@@ -8,7 +8,7 @@ import { StudentDashboard } from "../components/dashboards/StudentDashboard";
 
 interface Props {
   user: User;
-  onQuery: (question: string, collectionFilter?: string) => void;
+  onQuery: (question: string, collectionFilter?: string, fieldFilter?: string, eraFilter?: string) => void;
   recentQueries: Query[];
   onSignOut: () => void;
   onOpenGuide?: () => void;
@@ -120,7 +120,7 @@ export default function ResearchPortal({
           <FacultyDashboard
             user={user}
             onOpenDeposit={() => setIsDepositOpen(true)}
-            onQuery={onQuery}
+            onQuery={(q) => onQuery(q)}
           />
         ) : (
           <StudentDashboard

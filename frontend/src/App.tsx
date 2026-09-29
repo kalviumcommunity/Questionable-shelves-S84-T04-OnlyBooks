@@ -13,6 +13,8 @@ export interface Query {
   question: string;
   timestamp: string;
   collectionFilter?: string;
+  fieldFilter?: string;
+  eraFilter?: string;
 }
 
 export interface User {
@@ -140,12 +142,19 @@ export default function App() {
     setView("auth");
   }
 
-  function handleQuery(question: string, collectionFilter: string = "all") {
+  function handleQuery(
+    question: string,
+    collectionFilter: string = "all",
+    fieldFilter: string = "all",
+    eraFilter: string = "all"
+  ) {
     const q: Query = {
       id: `q-${Date.now()}`,
       question,
       timestamp: new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" }),
       collectionFilter,
+      fieldFilter,
+      eraFilter,
     };
     setQueryHistory((prev) => [q, ...prev]);
     setActiveQuery(q);
