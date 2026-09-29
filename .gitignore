@@ -1,0 +1,31 @@
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+*.db
+data/*.db
+data/chroma/
+.coverage
+htmlcov/
+
+# Node
+node_modules/
+dist/
+build/
+.cache/
+.vite/
+*.tsbuildinfo
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

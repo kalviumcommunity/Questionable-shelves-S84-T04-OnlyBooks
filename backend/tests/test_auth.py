@@ -103,3 +103,54 @@ async def test_auth_full_cycle():
         assert sso_repeat.status_code == 200
         assert sso_repeat.json()["user"]["name"] == "Prof. Elena Rostova"
 
+@pytest.mark.asyncio
+async def test_auth_otp_flow():
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        # 1. Reject disposable domains
+        disposable_res = await ac.post("/api/auth/send-otp", json={"email": "scam@mailinator.com"})
+        assert disposable_res.status_code == 400
+        assert "disposable email" in disposable_res.json()["detail"].lower()
+
+        # 2. Send valid OTP
+        send_res = await ac.post("/api/auth/send-otp", json={"email": "new.scholar@oxford.ac.uk"})
+        assert send_res.status_code == 200
+        otp_data = send_res.json()
+        assert "otp" in otp_data
+        assert len(otp_data["otp"]) == 6
+        otp_code = otp_data["otp"]
+
+        # 3. Verify with wrong OTP
+        wrong_res = await ac.post("/api/auth/verify-otp", json={"email": "new.scholar@oxford.ac.uk", "otp": "000000"})
+        assert wrong_res.status_code == 400
+        assert "invalid" in wrong_res.json()["detail"].lower()
+
+        # 4. Verify with correct OTP
+        verify_res = await ac.post("/api/auth/verify-otp", json={"email": "new.scholar@oxford.ac.uk", "otp": otp_code})
+        assert verify_res.status_code == 200
+        assert verify_res.json()["verified"] is True
+
+        # 5. Register this user
+        reg_res = await ac.post("/api/auth/register", json={
+            "name": "Oxford Scholar",
+            "email": "new.scholar@oxford.ac.uk",
+            "password": "Password123!",
+            "affiliation": "Oxford University",
+            "role": "student",
+        })
+        assert reg_res.status_code == 200
+
+        # 6. Attempting to send OTP again for the now-registered user MUST be rejected with 400
+        repeat_otp = await ac.post("/api/auth/send-otp", json={"email": "new.scholar@oxford.ac.uk"})
+        assert repeat_otp.status_code == 400
+        assert "already registered" in repeat_otp.json()["detail"].lower()
+
+        # 7. Check email endpoint verifies existing vs non-existing status
+        chk_existing = await ac.get("/api/auth/check-email?email=new.scholar@oxford.ac.uk")
+        assert chk_existing.status_code == 200
+        assert chk_existing.json()["exists"] is True
+
+        chk_available = await ac.get("/api/auth/check-email?email=completely.new@oxford.ac.uk")
+        assert chk_available.status_code == 200
+        assert chk_available.json()["exists"] is False
+

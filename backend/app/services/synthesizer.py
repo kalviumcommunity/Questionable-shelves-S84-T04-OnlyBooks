@@ -415,19 +415,14 @@ class GroundedSynthesizer:
         )
         return system_instruction, user_prompt
 
-    async def _call_gemini_synthesis(
+    def _gemini_request_payload(
         self,
         question: str,
         candidates: List[RetrievalResult],
-    ) -> Optional[List[SynthesisParagraph]]:
-        """Call Gemini REST API to generate citation-grounded synthesis paragraphs."""
-        if not settings.GEMINI_API_KEY:
-            return None
-
+    ) -> Dict[str, Any]:
         system_instruction, user_prompt = self._build_gemini_prompt(question, candidates)
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.GEMINI_MODEL}:generateContent?key={settings.GEMINI_API_KEY}"
-        payload = {
-            "system_instruction": {
+        return {
+            "systemInstruction": {
                 "parts": [{"text": system_instruction}]
             },
             "contents": [
@@ -442,9 +437,29 @@ class GroundedSynthesizer:
             }
         }
 
+    @staticmethod
+    def _gemini_request_headers() -> Dict[str, str]:
+        return {"x-goog-api-key": settings.GEMINI_API_KEY or ""}
+
+    async def _call_gemini_synthesis(
+        self,
+        question: str,
+        candidates: List[RetrievalResult],
+    ) -> Optional[List[SynthesisParagraph]]:
+        """Call Gemini REST API to generate citation-grounded synthesis paragraphs."""
+        if not settings.GEMINI_API_KEY:
+            return None
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.GEMINI_MODEL}:generateContent"
+        payload = self._gemini_request_payload(question, candidates)
+
         try:
             async with httpx.AsyncClient(timeout=25.0) as client:
-                resp = await client.post(url, json=payload)
+                resp = await client.post(
+                    url,
+                    json=payload,
+                    headers=self._gemini_request_headers(),
+                )
                 if resp.status_code == 200:
                     data = resp.json()
                     candidates_resp = data.get("candidates", [])
@@ -546,27 +561,17 @@ class GroundedSynthesizer:
         if not settings.GEMINI_API_KEY:
             return
 
-        system_instruction, user_prompt = self._build_gemini_prompt(question, candidates)
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.GEMINI_MODEL}:streamGenerateContent?alt=sse&key={settings.GEMINI_API_KEY}"
-        payload = {
-            "system_instruction": {
-                "parts": [{"text": system_instruction}]
-            },
-            "contents": [
-                {
-                    "role": "user",
-                    "parts": [{"text": user_prompt}]
-                }
-            ],
-            "generationConfig": {
-                "temperature": 0.2,
-                "maxOutputTokens": 2048,
-            }
-        }
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.GEMINI_MODEL}:streamGenerateContent?alt=sse"
+        payload = self._gemini_request_payload(question, candidates)
 
         try:
             async with httpx.AsyncClient(timeout=35.0) as client:
-                async with client.stream("POST", url, json=payload) as response:
+                async with client.stream(
+                    "POST",
+                    url,
+                    json=payload,
+                    headers=self._gemini_request_headers(),
+                ) as response:
                     if response.status_code != 200:
                         return
 

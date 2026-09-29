@@ -62,7 +62,7 @@ export default function NotificationPopover() {
   };
 
   return (
-    <div style={{ position: "relative" }} ref={popoverRef}>
+    <div style={{ position: "relative", zIndex: 90 }} ref={popoverRef}>
       {/* Bell Trigger Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
@@ -114,6 +114,7 @@ export default function NotificationPopover() {
       {isOpen && (
         <div
           className="glass-panel"
+          onMouseDown={(e) => e.stopPropagation()}
           style={{
             position: "absolute",
             top: "calc(100% + 12px)",
@@ -125,7 +126,12 @@ export default function NotificationPopover() {
             gap: "0.75rem",
             zIndex: 110,
             animation: "menuFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards",
-            boxShadow: "0 20px 48px rgba(0,0,0,0.12), inset 0 1px 2px rgba(255,255,255,0.4)",
+            boxShadow: "0 24px 48px rgba(0,0,0,0.2), inset 0 1px 2px rgba(255,255,255,0.4)",
+            background: "var(--bg-secondary)",
+            border: "1px solid var(--border-strong)",
+            borderRadius: "16px",
+            backdropFilter: "blur(24px)",
+            WebkitBackdropFilter: "blur(24px)",
           }}
         >
           <div

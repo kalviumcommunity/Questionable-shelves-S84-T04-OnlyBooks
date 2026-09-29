@@ -1,18 +1,133 @@
+import random
+import time
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from ..database import get_db
 from ..models.user import User
-from ..schemas.auth import UserRegister, UserLogin, SSOLogin, TokenResponse, UserResponse
+from ..schemas.auth import (
+    UserRegister,
+    UserLogin,
+    SSOLogin,
+    TokenResponse,
+    UserResponse,
+    SendOTPRequest,
+    VerifyOTPRequest,
+)
 from ..utils.security import (
     verify_password,
     get_password_hash,
     create_access_token,
     get_current_user,
 )
+from ..services.email_service import send_verification_email
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+# In-memory OTP storage mapping email -> (code, expires_at)
+_otp_store: dict[str, tuple[str, float]] = {}
+
+DISPOSABLE_DOMAINS = {
+    "mailinator.com",
+    "tempmail.com",
+    "10minutemail.com",
+    "guerrillamail.com",
+    "sharklasers.com",
+    "yopmail.com",
+    "trashmail.com",
+    "dispostable.com",
+    "fakeinbox.com",
+    "getairmail.com",
+    "throwawaymail.com",
+}
+
+@router.get("/check-email")
+async def check_email(email: str, db: AsyncSession = Depends(get_db)):
+    """Check if an institutional email is already registered."""
+    clean_email = email.lower().strip()
+    stmt = select(User).where(User.email == clean_email)
+    result = await db.execute(stmt)
+    existing_user = result.scalars().first()
+    return {
+        "exists": existing_user is not None,
+        "email": clean_email,
+        "message": "An account with this email address already exists." if existing_user else "Email available.",
+    }
+
+@router.post("/send-otp")
+async def send_otp(payload: SendOTPRequest, db: AsyncSession = Depends(get_db)):
+    email = payload.email.lower().strip()
+    domain = email.split("@")[-1] if "@" in email else ""
+    
+    if domain in DISPOSABLE_DOMAINS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Temporary or disposable email domains are not permitted for institutional archive registration.",
+        )
+
+    # Prevent re-registration: verify if an account already exists with this email address
+    stmt = select(User).where(User.email == email)
+    result = await db.execute(stmt)
+    existing_user = result.scalars().first()
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="An account with this email address is already registered. Please sign in instead.",
+        )
+        
+    # Generate 6-digit cryptographic-style verification code
+    code = f"{random.randint(100000, 999999)}"
+    _otp_store[email] = (code, time.time() + 300) # Valid for 5 minutes
+    
+    # Attempt real email dispatch via Resend API or SMTP
+    email_dispatched, reason = await send_verification_email(email, code)
+
+    if email_dispatched:
+        return {
+            "success": True,
+            "message": f"Verification code dispatched to {email}. Please check your inbox and spam folder.",
+            "is_simulated": False,
+            "otp": None, # Never expose OTP on screen when real email is sent!
+        }
+    else:
+        return {
+            "success": True,
+            "message": f"Simulated verification code generated for {email} ({reason})",
+            "is_simulated": True,
+            "otp": code, # Provided so testing never breaks if SMTP is not yet configured
+            "smtp_debug": reason,
+        }
+
+@router.post("/verify-otp")
+async def verify_otp(payload: VerifyOTPRequest):
+    email = payload.email.lower().strip()
+    entry = _otp_store.get(email)
+    
+    if not entry:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No verification code found for this email. Please request a new code.",
+        )
+        
+    code, expires_at = entry
+    if time.time() > expires_at:
+        _otp_store.pop(email, None)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Verification code has expired. Please request a fresh code.",
+        )
+        
+    if payload.otp.strip() != code:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid verification code. Please check the code and try again.",
+        )
+        
+    return {
+        "verified": True,
+        "message": "Email address verified successfully.",
+    }
 
 @router.post("/register", response_model=TokenResponse)
 async def register(user_in: UserRegister, db: AsyncSession = Depends(get_db)):
@@ -29,12 +144,13 @@ async def register(user_in: UserRegister, db: AsyncSession = Depends(get_db)):
     
     # Hash password and create user
     hashed_pwd = get_password_hash(user_in.password)
+    user_role = user_in.role or ("faculty" if "faculty" in user_in.email.lower() else "student")
     new_user = User(
         name=user_in.name.strip(),
         email=user_in.email.lower().strip(),
         hashed_password=hashed_pwd,
-        affiliation=user_in.affiliation or "University Scholar",
-        role="student",
+        affiliation=user_in.affiliation or ("Faculty Research Fellow" if user_role == "faculty" else "University Scholar"),
+        role=user_role,
         provider="local",
     )
     

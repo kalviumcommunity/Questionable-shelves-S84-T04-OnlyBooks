@@ -94,11 +94,13 @@ docker compose up --build
 #### 1. Backend Setup & Run
 ```bash
 cd backend
+copy .env.example .env        # Then add your Gemini API key to .env (leave blank to use fallback)
 python -m venv venv
 .\venv\Scripts\activate          # On Windows (or 'source venv/bin/activate' on Unix)
 pip install -r requirements.txt
 python -m uvicorn app.main:app --reload --port 8000 --host 127.0.0.1
 ```
+Create a Gemini API key in [Google AI Studio](https://aistudio.google.com/apikey) and set `GEMINI_API_KEY` in `backend/.env`. Keep the key server-side; never add it to frontend configuration or commit `.env`.
 - API Health: [http://127.0.0.1:8000/api/health](http://127.0.0.1:8000/api/health)
 - OpenAPI Swagger Documentation: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 

@@ -1,6 +1,10 @@
 import os
+from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List, Optional
+
+BACKEND_DIR = Path(__file__).resolve().parent.parent
+ROOT_DIR = BACKEND_DIR.parent
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "OnlyBooks University Library Archive"
@@ -14,8 +18,22 @@ class Settings(BaseSettings):
 
     # Gemini LLM configuration
     GEMINI_API_KEY: Optional[str] = os.getenv("GEMINI_API_KEY", None)
-    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
     
+    # SMTP Email Configuration for Real Verification Delivery
+    SMTP_HOST: Optional[str] = os.getenv("SMTP_HOST") or os.getenv("SMPT_HOST", "")
+    SMTP_PORT: int = int(os.getenv("SMTP_PORT") or os.getenv("SMPT_PORT", "587"))
+    SMTP_USER: Optional[str] = os.getenv("SMTP_USER") or os.getenv("SMPT_USER", "")
+    SMTP_PASSWORD: Optional[str] = os.getenv("SMTP_PASSWORD") or os.getenv("SMPT_PASSWORD", "")
+    SMTP_FROM_EMAIL: Optional[str] = os.getenv("SMTP_FROM_EMAIL") or os.getenv("SMPT_FROM_EMAIL", "")
+    SMTP_FROM_NAME: str = os.getenv("SMTP_FROM_NAME", "OnlyBooks Academic Library")
+    SMTP_TLS: bool = os.getenv("SMTP_TLS", "true").lower() in ("true", "1", "yes")
+
+    # Cloud HTTP Email APIs (Use port 443 HTTPS - works on Render Free Tier where outbound SMTP is blocked)
+    RESEND_API_KEY: Optional[str] = os.getenv("RESEND_API_KEY", "")
+    RESEND_FROM_EMAIL: Optional[str] = os.getenv("RESEND_FROM_EMAIL", "")
+    BREVO_API_KEY: Optional[str] = os.getenv("BREVO_API_KEY", "")
+
     # CORS origins
     CORS_ORIGINS: List[str] = [
         "http://localhost:5173",
@@ -23,6 +41,14 @@ class Settings(BaseSettings):
         "http://localhost:3000",
     ]
 
-    model_config = SettingsConfigDict(case_sensitive=True, env_file=".env")
+    model_config = SettingsConfigDict(
+        case_sensitive=False,
+        env_file=[
+            str(BACKEND_DIR / ".env"),
+            str(ROOT_DIR / ".env"),
+            ".env",
+        ],
+        extra="ignore",
+    )
 
 settings = Settings()

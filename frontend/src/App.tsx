@@ -4,6 +4,7 @@ import ResearchPortal from "./views/ResearchPortal";
 import SynthesisView from "./views/SynthesisView";
 import GetStarted from "./views/GetStarted";
 import { authApi, inquiryApi, getStoredToken } from "./services/api";
+import { loadAppSettings, applyAppSettings } from "./utils/userPreferences";
 
 export type AppView = "auth" | "portal" | "synthesis" | "guide";
 
@@ -35,16 +36,27 @@ const SEED_HISTORY: Query[] = [
 
 // Helper to toggle theme globally
 export function ThemeToggle() {
-  const [isDark, setIsDark] = useState(() => document.body.classList.contains("dark"));
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("onlybooks_theme");
+      if (saved) return saved === "dark";
+      return document.body.classList.contains("dark");
+    }
+    return false;
+  });
   
-  const toggle = () => {
-    const next = !isDark;
-    setIsDark(next);
-    if (next) {
+  useEffect(() => {
+    if (isDark) {
       document.body.classList.add("dark");
+      localStorage.setItem("onlybooks_theme", "dark");
     } else {
       document.body.classList.remove("dark");
+      localStorage.setItem("onlybooks_theme", "light");
     }
+  }, [isDark]);
+
+  const toggle = () => {
+    setIsDark((prev) => !prev);
   };
 
   return (
@@ -95,8 +107,9 @@ export default function App() {
       .catch((e) => console.warn("Failed to load inquiry history:", e));
   };
 
-  // Restore authenticated session on initial mount
+  // Restore authenticated session and apply preferences on initial mount
   useEffect(() => {
+    applyAppSettings(loadAppSettings());
     const token = getStoredToken();
     if (!token) {
       setLoadingSession(false);

@@ -1,6 +1,79 @@
-// OnlyBooks Frontend API Service
+const API_URL_KEY = "onlybooks_api_url";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
+export function getApiBaseUrl(): string {
+  // Priority: 1. Runtime override in localStorage, 2. Build-time Vite env, 3. Default relative "/api"
+  const stored = typeof window !== "undefined" ? localStorage.getItem(API_URL_KEY) : null;
+  const envUrl = (import.meta as any).env?.VITE_API_URL;
+  let raw = (stored || envUrl || "/api").trim();
+
+  if (!raw || raw === "/api") return "/api";
+
+  // Remove trailing slashes
+  raw = raw.replace(/\/+$/, "");
+
+  // If user provided origin without /api prefix (e.g. "https://backend.onrender.com"), append /api
+  if (!raw.endsWith("/api")) {
+    raw = `${raw}/api`;
+  }
+  return raw;
+}
+
+export function setApiBaseUrl(url: string): void {
+  let clean = url.trim().replace(/\/+$/, "");
+  if (clean) {
+    localStorage.setItem(API_URL_KEY, clean);
+  } else {
+    localStorage.removeItem(API_URL_KEY);
+  }
+}
+
+export function clearApiBaseUrl(): void {
+  localStorage.removeItem(API_URL_KEY);
+}
+
+export async function checkApiHealth(customUrl?: string): Promise<{ ok: boolean; status: number; message: string }> {
+  try {
+    let target = customUrl ? customUrl.trim().replace(/\/+$/, "") : getApiBaseUrl();
+    if (target !== "/api" && !target.endsWith("/api")) {
+      target = `${target}/api`;
+    }
+    
+    // First try target with /health
+    let res: Response;
+    try {
+      res = await fetch(`${target}/health`, { method: "GET" });
+    } catch {
+      // Fallback try without /api suffix
+      const rootUrl = target.replace(/\/api$/, "");
+      res = await fetch(`${rootUrl}/health`, { method: "GET" });
+    }
+
+    const contentType = res.headers.get("content-type") || "";
+    if (contentType.includes("text/html")) {
+      return {
+        ok: false,
+        status: res.status,
+        message: "Server returned HTML instead of API JSON. Ensure this is your Render FastAPI URL (e.g. https://...onrender.com), not your static frontend URL.",
+      };
+    }
+
+    if (res.ok) {
+      try {
+        const data = await res.json();
+        return { ok: true, status: res.status, message: data.service || "Connected" };
+      } catch {
+        return { ok: false, status: res.status, message: "Response was not valid JSON." };
+      }
+    }
+    return { ok: false, status: res.status, message: `Server returned HTTP ${res.status}` };
+  } catch (err: any) {
+    let msg = err.message || "Failed to reach server.";
+    if (msg === "Failed to fetch" || msg.includes("Failed to fetch")) {
+      msg = "Cannot reach this URL (Failed to fetch). Please check your Render Dashboard and copy the exact URL under your service name (Render often appends random letters, e.g. -xxxx.onrender.com).";
+    }
+    return { ok: false, status: 0, message: msg };
+  }
+}
 
 export interface UserProfile {
   id: string;
@@ -23,6 +96,7 @@ export interface RegisterPayload {
   email: string;
   password: string;
   affiliation?: string;
+  role?: string;
 }
 
 export interface LoginPayload {
@@ -62,12 +136,30 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  const baseUrl = getApiBaseUrl();
+  let response: Response;
 
-  if (!response.ok) {
+  try {
+    response = await fetch(`${baseUrl}${endpoint}`, {
+      ...options,
+      headers,
+    });
+  } catch (networkErr: any) {
+    // Notify application of network failure
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("onlybooks:api_network_error", {
+        detail: { endpoint, baseUrl, originalError: networkErr.message }
+      }));
+    }
+    throw new Error(
+      `Cannot connect to academic server at ${baseUrl}. Ensure backend is running and CORS is configured.`
+    );
+  }
+
+  const contentType = response.headers.get("content-type") || "";
+  const isHtml = contentType.includes("text/html");
+
+  if (!response.ok || isHtml) {
     if (
       response.status === 401 &&
       endpoint !== "/auth/login" &&
@@ -76,22 +168,65 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     ) {
       clearStoredToken();
     }
+
     let errorDetail = "An error occurred with the academic server.";
-    try {
-      const errorJson = await response.json();
-      if (errorJson.detail) {
-        errorDetail = errorJson.detail;
+    const isDefault = baseUrl === "/api";
+    const isRemote = typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1";
+
+    if (isHtml || response.status === 404) {
+      if (isDefault && isRemote) {
+        errorDetail = `Backend API not reached (HTTP ${response.status} at ${endpoint}). The deployed frontend is attempting to call relative "/api", but no backend URL is configured. Please enter your Render Backend URL in the Server Settings banner below.`;
+      } else if (isHtml) {
+        errorDetail = `Expected API response but received HTML from "${baseUrl}${endpoint}". Please verify that your Backend URL points to your Render FastAPI web service (e.g. https://...onrender.com), not your static frontend site.`;
+      } else {
+        errorDetail = `Endpoint not found (HTTP 404 at ${baseUrl}${endpoint}). Verify the backend service is deployed and active.`;
       }
-    } catch {
-      errorDetail = response.statusText || errorDetail;
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("onlybooks:api_404", {
+          detail: { endpoint, baseUrl }
+        }));
+      }
+    } else {
+      try {
+        const errorJson = await response.json();
+        if (errorJson.detail) {
+          errorDetail = errorJson.detail;
+        }
+      } catch {
+        errorDetail = response.statusText || errorDetail;
+      }
     }
     throw new Error(errorDetail);
   }
 
-  return response.json();
+  try {
+    return await response.json();
+  } catch (parseErr: any) {
+    throw new Error(`Failed to parse JSON response from ${baseUrl}${endpoint}: ${parseErr.message}`);
+  }
 }
 
 export const authApi = {
+  async checkEmail(email: string): Promise<{ exists: boolean; email: string; message: string }> {
+    return request<{ exists: boolean; email: string; message: string }>(
+      `/auth/check-email?email=${encodeURIComponent(email)}`
+    );
+  },
+
+  async sendOtp(email: string): Promise<{ success: boolean; message: string; otp?: string; is_simulated?: boolean; smtp_debug?: string }> {
+    return request<{ success: boolean; message: string; otp?: string; is_simulated?: boolean; smtp_debug?: string }>("/auth/send-otp", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  async verifyOtp(email: string, otp: string): Promise<{ verified: boolean; message: string }> {
+    return request<{ verified: boolean; message: string }>("/auth/verify-otp", {
+      method: "POST",
+      body: JSON.stringify({ email, otp }),
+    });
+  },
+
   async register(payload: RegisterPayload): Promise<AuthResponse> {
     const data = await request<AuthResponse>("/auth/register", {
       method: "POST",
@@ -218,7 +353,8 @@ export const catalogApi = {
     if (token) {
       headers["Authorization"] = `Bearer ${token}`;
     }
-    const response = await fetch(`${API_BASE_URL}/catalog/upload`, {
+    const baseUrl = getApiBaseUrl();
+    const response = await fetch(`${baseUrl}/catalog/upload`, {
       method: "POST",
       headers,
       body: formData,
@@ -375,7 +511,8 @@ export const inquiryApi = {
     if (token) {
       headers["Authorization"] = `Bearer ${token}`;
     }
-    const response = await fetch(`${API_BASE_URL}/inquiries/${inquiryId}/bibtex`, {
+    const baseUrl = getApiBaseUrl();
+    const response = await fetch(`${baseUrl}/inquiries/${inquiryId}/bibtex`, {
       method: "GET",
       headers,
     });
@@ -406,7 +543,8 @@ export const inquiryApi = {
       headers["Authorization"] = `Bearer ${token}`;
     }
 
-    fetch(`${API_BASE_URL}/inquiries/synthesize/stream`, {
+    const baseUrl = getApiBaseUrl();
+    fetch(`${baseUrl}/inquiries/synthesize/stream`, {
       method: "POST",
       headers,
       body: JSON.stringify(payload),
