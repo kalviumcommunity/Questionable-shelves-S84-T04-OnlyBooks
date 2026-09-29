@@ -111,6 +111,12 @@ async def test_gemini_live_call_success_mocked(mock_candidates):
                 mock_retriever_fn.return_value = mock_retriever
 
                 response = await synthesizer.synthesize(request, db=None)
+                request_url = mock_client.post.await_args.args[0]
+                request_kwargs = mock_client.post.await_args.kwargs
+                assert "?key=" not in request_url
+                assert request_kwargs["headers"]["x-goog-api-key"] == "test-fake-key-12345"
+                assert "systemInstruction" in request_kwargs["json"]
+                assert "system_instruction" not in request_kwargs["json"]
                 assert len(response.paragraphs) == 2
                 assert "Kuhn emphasizes" in response.paragraphs[0].text
                 assert "¹" in response.paragraphs[0].text
@@ -148,3 +154,68 @@ async def test_gemini_api_error_graceful_fallback(mock_candidates):
                 assert response is not None
                 assert len(response.paragraphs) > 0
                 assert len(response.citations) == 2
+
+@pytest.mark.asyncio
+async def test_gemini_stream_request_contract(mock_candidates):
+    synthesizer = GroundedSynthesizer()
+    gemini_response = MagicMock()
+    gemini_response.status_code = 200
+
+    async def response_lines():
+        yield "data: " + json.dumps({
+            "candidates": [{
+                "content": {"parts": [{"text": "First paragraph.¹\n\nSecond paragraph.²"}]}
+            }]
+        })
+
+    gemini_response.aiter_lines = response_lines
+    response_context = MagicMock()
+    response_context.__aenter__ = AsyncMock(return_value=gemini_response)
+    response_context.__aexit__ = AsyncMock(return_value=None)
+
+    mock_client = MagicMock()
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=None)
+    mock_client.stream.return_value = response_context
+
+    with patch("app.services.synthesizer.settings.GEMINI_API_KEY", "test-fake-key-12345"):
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            events = [
+                event async for event in synthesizer._stream_gemini_synthesis(
+                    "How do paradigms shift?", mock_candidates
+                )
+            ]
+
+    request_args = mock_client.stream.call_args
+    request_url = request_args.args[1]
+    request_kwargs = request_args.kwargs
+    assert "streamGenerateContent?alt=sse" in request_url
+    assert "key=" not in request_url
+    assert request_kwargs["headers"]["x-goog-api-key"] == "test-fake-key-12345"
+    assert "systemInstruction" in request_kwargs["json"]
+    assert [event["type"] for event in events] == ["token", "paragraph_break", "token"]
+    assert events[0]["token"] == "First paragraph.¹"
+    assert events[2]["paragraph_idx"] == 1
+
+@pytest.mark.asyncio
+async def test_stream_falls_back_without_gemini_key(mock_candidates):
+    synthesizer = GroundedSynthesizer()
+    request = InquiryRequest(
+        question="How do paradigms shift?",
+        collection_filter="all",
+        top_k=2,
+    )
+    mock_retriever = MagicMock()
+    mock_retriever.retrieve.return_value = mock_candidates
+
+    with patch("app.services.synthesizer.settings.GEMINI_API_KEY", ""):
+        with patch("app.services.synthesizer.get_hybrid_retriever", return_value=mock_retriever):
+            events = [
+                json.loads(line[6:])
+                async for line in synthesizer.synthesize_stream(request, db=None)
+            ]
+
+    assert events[0]["event"] == "metadata"
+    assert events[1]["event"] == "citations"
+    assert any(event["event"] == "token" for event in events)
+    assert events[-1]["event"] == "done"
