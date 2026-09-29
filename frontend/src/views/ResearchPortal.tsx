@@ -7,11 +7,11 @@ import Reveal from "../components/Reveal";
 import UserMenu from "../components/UserMenu";
 import NotificationPopover from "../components/NotificationPopover";
 
-type FilterType = "all" | "papers" | "theses" | "reserves";
+type FilterType = "all" | "papers" | "theses" | "reserves" | "press";
 
 interface Props {
   user: User;
-  onQuery: (question: string, collectionFilter?: string) => void;
+  onQuery: (question: string, collectionFilter?: string, fieldFilter?: string, eraFilter?: string) => void;
   recentQueries: Query[];
   onSignOut: () => void;
   onOpenGuide?: () => void;
@@ -20,15 +20,34 @@ interface Props {
 export default function ResearchPortal({ user, onQuery, recentQueries, onSignOut, onOpenGuide }: Props) {
   const [input, setInput] = useState("");
   const [filter, setFilter] = useState<FilterType>("all");
+  const [fieldFilter, setFieldFilter] = useState<string>("all");
+  const [eraFilter, setEraFilter] = useState<string>("all");
   const [catalogSearch, setCatalogSearch] = useState("");
   const [sortBy, setSortBy] = useState<string>("newest");
   const [metrics, setMetrics] = useState<CatalogMetrics | null>(null);
   const [liveAcquisitions, setLiveAcquisitions] = useState<CatalogDocument[]>([]);
   const [isDepositOpen, setIsDepositOpen] = useState(false);
 
+  function getYearRange() {
+    if (eraFilter === "classic") return { yearTo: "2014" };
+    if (eraFilter === "modern") return { yearFrom: "2015", yearTo: "2021" };
+    if (eraFilter === "contemporary") return { yearFrom: "2022" };
+    return {};
+  }
+
   function handleRefreshCatalog() {
+    const { yearFrom, yearTo } = getYearRange();
     catalogApi.getMetrics().then((m) => setMetrics(m)).catch(() => {});
-    catalogApi.getAcquisitions(filter, catalogSearch, sortBy).then((res) => {
+    catalogApi.getAcquisitions(
+      filter,
+      catalogSearch,
+      sortBy,
+      yearFrom,
+      yearTo,
+      60,
+      0,
+      fieldFilter !== "all" ? fieldFilter : undefined
+    ).then((res) => {
       if (res.items && res.items.length > 0) setLiveAcquisitions(res.items);
     }).catch(() => {});
   }
@@ -38,14 +57,24 @@ export default function ResearchPortal({ user, onQuery, recentQueries, onSignOut
   }, []);
 
   useEffect(() => {
-    catalogApi.getAcquisitions(filter, catalogSearch, sortBy).then((res) => {
+    const { yearFrom, yearTo } = getYearRange();
+    catalogApi.getAcquisitions(
+      filter,
+      catalogSearch,
+      sortBy,
+      yearFrom,
+      yearTo,
+      60,
+      0,
+      fieldFilter !== "all" ? fieldFilter : undefined
+    ).then((res) => {
       if (res.items) setLiveAcquisitions(res.items);
     }).catch(() => {});
-  }, [filter, catalogSearch, sortBy]);
+  }, [filter, fieldFilter, eraFilter, catalogSearch, sortBy]);
 
   function submit() {
     const trimmed = input.trim();
-    if (trimmed) onQuery(trimmed, filter);
+    if (trimmed) onQuery(trimmed, filter, fieldFilter, eraFilter);
   }
 
   function onKey(e: KeyboardEvent<HTMLInputElement>) {
@@ -280,11 +309,18 @@ export default function ResearchPortal({ user, onQuery, recentQueries, onSignOut
             {/* ── Left Column ── */}
             <div className="col-span-1">
               <Reveal delay={0}>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", padding: "0.3rem 0.8rem", background: "var(--accent-light)", border: "1px solid var(--border-strong)", borderRadius: "20px", marginBottom: "1.25rem" }}>
+                  <span style={{ fontSize: "0.8rem" }}>🎓</span>
+                  <span style={{ fontSize: "0.66rem", textTransform: "uppercase", letterSpacing: "0.12em", fontWeight: 700, color: "var(--text-primary)" }}>
+                    Academic Research Engine
+                  </span>
+                </div>
+
                 <h2 style={{ fontFamily: "var(--font-display)", fontSize: "1.85rem", lineHeight: 1.25, fontWeight: 700, marginBottom: "1rem", letterSpacing: "-0.035em", color: "var(--text-primary)" }}>
-                  Synthesize library holdings in seconds.
+                  Stop scrolling through dozens of disconnected documents.
                 </h2>
                 <p style={{ fontSize: "0.875rem", lineHeight: 1.75, color: "var(--text-secondary)", marginBottom: "2rem" }}>
-                  OnlyBooks connects research papers, theses, and course materials into concise, citation-backed explanations.
+                  University libraries hold research papers, theses, and course reserves — yet finding one direct, citation-backed explanation used to require hours of manual skimming. OnlyBooks synthesizes holdings with verified footnotes and curated literature recommendations.
                 </p>
 
                 {/* Stat Cards */}
@@ -309,19 +345,90 @@ export default function ResearchPortal({ user, onQuery, recentQueries, onSignOut
             <div className="col-span-2">
               <Reveal delay={0.15}>
                 <div className="glass-panel" style={{ padding: "2.5rem", marginBottom: "2.5rem" }}>
-                  <p style={{ fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.14em", color: "var(--text-secondary)", marginBottom: "1.25rem", fontWeight: 700, opacity: 0.75 }}>
-                    Begin Your Inquiry
-                  </p>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem", flexWrap: "wrap", gap: "0.75rem" }}>
+                    <p style={{ fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.14em", color: "var(--text-secondary)", margin: 0, fontWeight: 700, opacity: 0.75 }}>
+                      Begin Your Inquiry
+                    </p>
+                    
+                    {/* Publication Era Selector */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                      <span style={{ fontSize: "0.68rem", color: "var(--text-secondary)", fontWeight: 600 }}>Era:</span>
+                      <select
+                        value={eraFilter}
+                        onChange={(e) => setEraFilter(e.target.value)}
+                        style={{
+                          background: "var(--bg-secondary)",
+                          border: "1px solid var(--border-strong)",
+                          borderRadius: "8px",
+                          padding: "0.2rem 0.6rem",
+                          fontSize: "0.72rem",
+                          color: "var(--text-primary)",
+                          outline: "none",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <option value="all">All Eras</option>
+                        <option value="classic">Classics (&lt;2015)</option>
+                        <option value="modern">Modern (2015–2021)</option>
+                        <option value="contemporary">Contemporary (2022–2026)</option>
+                      </select>
+                    </div>
+                  </div>
 
-                  {/* Filter Chips */}
-                  <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.5rem", flexWrap: "wrap" }}>
-                    {filters.map((c) => (
+                  {/* Collection Filter Chips */}
+                  <div style={{ display: "flex", gap: "0.45rem", marginBottom: "1rem", flexWrap: "wrap" }}>
+                    {[
+                      { id: "all",      label: "All Collections" },
+                      { id: "reserves", label: "📚 Course Reserves" },
+                      { id: "papers",   label: "📄 Faculty Research" },
+                      { id: "theses",   label: "🎓 Theses & Dissertations" },
+                      { id: "press",    label: "🏛️ University Press" },
+                    ].map((c) => (
                       <button
                         key={c.id}
-                        onClick={() => setFilter(c.id)}
+                        onClick={() => setFilter(c.id as FilterType)}
                         className={`portal-filter-chip${filter === c.id ? " active" : ""}`}
+                        style={{ fontSize: "0.74rem", padding: "0.3rem 0.8rem" }}
                       >
                         {c.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Academic Discipline Ribbon */}
+                  <div style={{ display: "flex", gap: "0.35rem", marginBottom: "1.25rem", flexWrap: "wrap", borderTop: "1px solid var(--border-light)", paddingTop: "0.85rem" }}>
+                    <span style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--text-secondary)", alignSelf: "center", marginRight: "0.4rem", fontWeight: 700 }}>
+                      Discipline:
+                    </span>
+                    {[
+                      { id: "all", label: "All Disciplines", icon: "🌐" },
+                      { id: "Computer Science", label: "AI & Computing", icon: "⚡" },
+                      { id: "Quantum", label: "Quantum Info", icon: "⚛️" },
+                      { id: "Biomedical", label: "Genomics", icon: "🧬" },
+                      { id: "Agricultural", label: "Food & Climate", icon: "🌱" },
+                      { id: "Economics", label: "Economics & Games", icon: "📈" },
+                      { id: "Law", label: "Law & Society", icon: "⚖️" },
+                      { id: "Philosophy", label: "Philosophy", icon: "🔬" },
+                    ].map((d) => (
+                      <button
+                        key={d.id}
+                        onClick={() => setFieldFilter(d.id)}
+                        className="btn-ghost"
+                        style={{
+                          fontSize: "0.7rem",
+                          padding: "0.22rem 0.6rem",
+                          borderRadius: "14px",
+                          border: "1px solid",
+                          borderColor: fieldFilter === d.id ? "var(--accent)" : "var(--border-strong)",
+                          background: fieldFilter === d.id ? "var(--accent-light)" : "var(--bg-secondary)",
+                          color: fieldFilter === d.id ? "var(--text-primary)" : "var(--text-secondary)",
+                          fontWeight: fieldFilter === d.id ? 700 : 500,
+                          cursor: "pointer",
+                          transition: "all 0.18s ease",
+                        }}
+                      >
+                        <span style={{ marginRight: "0.25rem" }}>{d.icon}</span>
+                        <span>{d.label}</span>
                       </button>
                     ))}
                   </div>
@@ -337,18 +444,120 @@ export default function ResearchPortal({ user, onQuery, recentQueries, onSignOut
                       onChange={(e) => setInput(e.target.value)}
                       onKeyDown={onKey}
                       className="search-input"
-                      placeholder="Inquire about a research topic, thesis, or reading…"
+                      placeholder={
+                        fieldFilter === "Quantum"
+                          ? "Inquire about qubits, Shor's algorithm, error correction…"
+                          : fieldFilter === "Biomedical"
+                          ? "Inquire about CRISPR-Cas9, RNA editing, epidemic modeling…"
+                          : fieldFilter === "Agricultural"
+                          ? "Inquire about planetary health diet, food security, tipping points…"
+                          : fieldFilter === "Economics"
+                          ? "Inquire about Nash equilibrium, r > g capital wealth, mechanism design…"
+                          : fieldFilter === "Law"
+                          ? "Inquire about Habermas legal legitimacy, constitutional design…"
+                          : fieldFilter === "Philosophy"
+                          ? "Inquire about paradigm shifts, Popper falsification, normal science…"
+                          : "Inquire about a research topic, thesis, or reading…"
+                      }
                     />
                     <button className="search-submit-btn" onClick={submit}>Submit</button>
                   </div>
 
-                  <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>
-                    Press{" "}
-                    <kbd style={{ background: "var(--accent-light)", padding: "2px 7px", borderRadius: "5px", color: "var(--text-primary)", fontFamily: "var(--font-sans)", fontSize: "0.7rem", border: "1px solid var(--border-strong)" }}>
-                      Enter
-                    </kbd>{" "}
-                    to generate a synthesised response
-                  </span>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem", marginBottom: "1.5rem" }}>
+                    <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>
+                      Press{" "}
+                      <kbd style={{ background: "var(--accent-light)", padding: "2px 7px", borderRadius: "5px", color: "var(--text-primary)", fontFamily: "var(--font-sans)", fontSize: "0.7rem", border: "1px solid var(--border-strong)" }}>
+                        Enter
+                      </kbd>{" "}
+                      to generate a citation-grounded response
+                    </span>
+                    {(fieldFilter !== "all" || filter !== "all" || eraFilter !== "all") && (
+                      <button
+                        onClick={() => { setFilter("all"); setFieldFilter("all"); setEraFilter("all"); }}
+                        className="btn-ghost"
+                        style={{ fontSize: "0.68rem", color: "var(--accent)", textDecoration: "underline", padding: 0 }}
+                      >
+                        Reset active filters
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Recommended Student Research Topics */}
+                  <div style={{ borderTop: "1px solid var(--border-light)", paddingTop: "1.25rem" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginBottom: "0.75rem" }}>
+                      <span style={{ fontSize: "0.8rem" }}>💡</span>
+                      <span style={{ fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700, color: "var(--text-secondary)" }}>
+                        {fieldFilter === "all" ? "Curated Syllabus Topics & Recommended Inquiries:" : `Recommended ${fieldFilter} Inquiries:`}
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                      {(
+                        fieldFilter === "Quantum"
+                          ? [
+                              { label: "⚛️ Qubit Superposition & Entangled States", q: "What is quantum superposition and how do entangled multi-qubit systems behave?" },
+                              { label: "🔑 Quantum Fourier Transform & Shor's Factoring", q: "How does Shor's algorithm achieve polynomial time factoring via quantum Fourier transform?" },
+                              { label: "🛡️ Quantum Error Correction & Threshold Theorems", q: "How do quantum error-correcting codes protect logical qubits from phase-flip decoherence?" },
+                            ]
+                          : fieldFilter === "Biomedical"
+                          ? [
+                              { label: "🧬 CRISPR-Cas9 Dual-RNA-Guided Endonuclease", q: "How does CRISPR-Cas9 endonuclease achieve targeted double-strand breaks?" },
+                              { label: "🦠 Compartmental SEIR Modeling in Epidemic Surveillance", q: "How do SEIR differential models estimate basic reproduction numbers in pandemics?" },
+                              { label: "🧠 Synaptic Plasticity & Long-Term Potentiation", q: "What cellular mechanisms govern synaptic plasticity in memory consolidation?" },
+                            ]
+                          : fieldFilter === "Agricultural"
+                          ? [
+                              { label: "🌱 Planetary Health Diets & Agricultural Boundaries", q: "food" },
+                              { label: "🌾 Food Sovereignty & Corporate Agroecology Commons", q: "What is food sovereignty and how does it challenge speculative grain regimes?" },
+                              { label: "🌍 Nine Planetary Boundaries Safe Operating Space", q: "What are the planetary boundaries identified by Rockström and Steffen?" },
+                              { label: "🧊 Cryosphere Tipping Points & Climate Feedbacks", q: "What are the non-linear tipping points in Earth's climate system?" },
+                            ]
+                          : fieldFilter === "Economics"
+                          ? [
+                              { label: "📈 Nash Equilibrium in Non-Cooperative Games", q: "What defines a Nash equilibrium in finite N-person non-cooperative games?" },
+                              { label: "💰 Capital in the 21st Century & Wealth Divergence (r > g)", q: "How does Thomas Piketty formulate the fundamental inequality of wealth concentration?" },
+                              { label: "🧠 System 1 & System 2 Cognitive Biases in Decisions", q: "How do cognitive heuristics and prospect theory explain human decision making?" },
+                            ]
+                          : fieldFilter === "Law"
+                          ? [
+                              { label: "⚖️ Discourse Theory of Democratic Legitimacy", q: "How does Habermas ground legal legitimacy in discursive procedure?" },
+                              { label: "🏛️ Constituent Power in Post-Conflict Transitions", q: "How does constituent power operate in post-conflict constitutional design?" },
+                              { label: "💻 Algorithmic Scoring Opacity in Digital Finance", q: "How does Frank Pasquale critique black-box algorithmic governance?" },
+                            ]
+                          : fieldFilter === "Philosophy"
+                          ? [
+                              { label: "🔬 Paradigm Shifts & Incommensurability (Kuhn)", q: "How do scientific paradigms shift according to Thomas Kuhn?" },
+                              { label: "🧪 Deductive Falsification & Demarcation (Popper)", q: "How does Karl Popper formulate empirical falsification versus inductivism?" },
+                            ]
+                          : [
+                              { label: "🌱 Sustainable Food Systems & Planetary Health", q: "food" },
+                              { label: "⚡ Attention Mechanisms in Transformers", q: "How does self-attention mechanism eliminate recurrence bottlenecks?" },
+                              { label: "⚛️ Quantum Qubits & Shor's Factoring", q: "How does Shor's algorithm achieve polynomial time factoring via quantum Fourier transform?" },
+                              { label: "🧬 CRISPR-Cas9 RNA-Guided Gene Editing", q: "How does CRISPR-Cas9 endonuclease achieve targeted double-strand breaks?" },
+                              { label: "📈 Nash Equilibrium in Non-Cooperative Games", q: "What defines a Nash equilibrium in finite N-person non-cooperative games?" },
+                              { label: "⚖️ Deliberative Democratic Legitimacy", q: "How does Habermas ground legal legitimacy in discursive procedure?" },
+                              { label: "🔬 Paradigm Shifts & Normal Science", q: "How do scientific paradigms shift according to Thomas Kuhn?" },
+                            ]
+                      ).map((topic) => (
+                        <button
+                          key={topic.label}
+                          onClick={() => onQuery(topic.q, filter, fieldFilter, eraFilter)}
+                          className="btn-ghost"
+                          style={{
+                            fontSize: "0.72rem",
+                            padding: "0.35rem 0.75rem",
+                            borderRadius: "16px",
+                            border: "1px solid var(--border-strong)",
+                            background: "var(--bg-secondary)",
+                            cursor: "pointer",
+                            transition: "all 0.2s ease",
+                            textAlign: "left",
+                          }}
+                        >
+                          {topic.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Recent Inquiries */}
@@ -385,9 +594,16 @@ export default function ResearchPortal({ user, onQuery, recentQueries, onSignOut
                 <p style={{ fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--text-primary)", fontWeight: 700, margin: 0 }}>
                   Curated Holdings &amp; Trending Dissertations
                 </p>
-                <p style={{ fontSize: "0.72rem", color: "var(--text-secondary)", margin: "0.2rem 0 0 0" }}>
-                  {displayAcquisitions.length} indexed manuscript{displayAcquisitions.length !== 1 ? "s" : ""}
-                </p>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.25rem", flexWrap: "wrap" }}>
+                  <p style={{ fontSize: "0.72rem", color: "var(--text-secondary)", margin: 0 }}>
+                    {displayAcquisitions.length} indexed manuscript{displayAcquisitions.length !== 1 ? "s" : ""}
+                  </p>
+                  {(fieldFilter !== "all" || filter !== "all" || eraFilter !== "all") && (
+                    <span style={{ fontSize: "0.65rem", background: "var(--accent-light)", border: "1px solid var(--border-strong)", borderRadius: "10px", padding: "0.1rem 0.5rem", color: "var(--text-primary)", fontWeight: 600 }}>
+                      Filtered: {[filter !== "all" ? filter : null, fieldFilter !== "all" ? fieldFilter : null, eraFilter !== "all" ? eraFilter : null].filter(Boolean).join(" · ")}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Filtering and Sorting controls */}

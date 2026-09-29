@@ -185,10 +185,12 @@ export const catalogApi = {
     yearFrom?: string,
     yearTo?: string,
     limit?: number,
-    offset?: number
+    offset?: number,
+    field?: string
   ): Promise<AcquisitionsResponse> {
     const params = new URLSearchParams();
     if (collection && collection !== "all") params.append("collection", collection);
+    if (field && field !== "all") params.append("field", field);
     if (search && search.trim()) params.append("search", search.trim());
     if (sortBy) params.append("sort_by", sortBy);
     if (yearFrom && yearFrom.trim()) params.append("year_from", yearFrom.trim());
@@ -265,6 +267,8 @@ export interface DocumentDepositResponse {
 export interface InquiryRequest {
   question: string;
   collection_filter?: string;
+  field_filter?: string;
+  era_filter?: string;
   user_id?: string;
   top_k?: number;
 }
@@ -284,6 +288,19 @@ export interface CitationItem {
   confidence_score: number;
 }
 
+export interface RecommendedReadingItem {
+  document_id: string;
+  title: string;
+  author: string;
+  year: string;
+  field: string;
+  collection_type: string;
+  call_number: string;
+  total_pages: number;
+  recommendation_reason: string;
+  category?: string;
+}
+
 export interface SynthesisParagraph {
   text: string;
 }
@@ -295,6 +312,7 @@ export interface SynthesisResponse {
   paragraphs: SynthesisParagraph[];
   citations: CitationItem[];
   attribution_score: number;
+  recommended_readings?: RecommendedReadingItem[];
 }
 
 export interface InquirySummaryItem {
@@ -328,6 +346,7 @@ export interface StreamEventDone {
   attribution_score: number;
   total_paragraphs: number;
   total_citations: number;
+  recommended_readings?: RecommendedReadingItem[];
 }
 
 export const inquiryApi = {
@@ -373,6 +392,7 @@ export const inquiryApi = {
       onCitations?: (citations: CitationItem[]) => void;
       onToken?: (token: string, paragraphIdx: number) => void;
       onParagraphBreak?: (paragraphIdx: number) => void;
+      onRecommendations?: (recs: RecommendedReadingItem[]) => void;
       onDone?: (done: StreamEventDone) => void;
       onError?: (err: Error) => void;
     }
@@ -427,6 +447,9 @@ export const inquiryApi = {
                   break;
                 case "paragraph_break":
                   callbacks.onParagraphBreak?.(eventData.paragraph_idx);
+                  break;
+                case "recommendations":
+                  callbacks.onRecommendations?.(eventData.recommendations);
                   break;
                 case "done":
                   callbacks.onDone?.(eventData);
