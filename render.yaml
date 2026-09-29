@@ -18,6 +18,12 @@ services:
     rootDir: frontend
     buildCommand: npm run build
     staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: onlybooks-backend
+          envVarKey: RENDER_EXTERNAL_HOSTNAME
     routes:
       - type: rewrite
         source: /*
