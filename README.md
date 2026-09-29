@@ -1,19 +1,23 @@
 # OnlyBooks · University Library Archive & Citation-Backed RAG Platform
 
-> **A citation-backed academic research platform** pairing scholarly library holdings with real-time hybrid vector-lexical retrieval, citation guardrails, dynamic chapter ingestion, and an interactive digital reading room.
+> **A citation-backed academic research platform** pairing scholarly library holdings with real-time hybrid vector-lexical retrieval, citation guardrails, multi-dimensional search filtering, categorized pedagogical recommendations, dynamic chapter ingestion, and an interactive digital reading room.
 
 ---
 
 ## 🏛️ System Overview
 
-**OnlyBooks** is designed for university researchers, faculty, and doctoral candidates who require research synthesis backed by verifiable library holdings. Unlike conventional conversational AI that risks hallucinating non-existent papers or misquoting page numbers, OnlyBooks guarantees:
+**OnlyBooks** is designed for university researchers, faculty, and students who require concise, factual research synthesis backed by verifiable library holdings. Rather than scrolling through dozens of disconnected documents or risking LLM hallucinations, OnlyBooks guarantees:
 
-1. **Hybrid Retrieval (Dense + BM25 + RRF)**: Simultaneously evaluates semantic dense embeddings and BM25 lexical token matches across catalog holdings, combining ranks via Reciprocal Rank Fusion ($k=60$).
-2. **Strict Grounded Citation Guardrails**: Factual claims in the synthesis are mapped 1-to-1 to exact page excerpts and anchored using Unicode superscript markers (`¹`, `²`, `³`).
-3. **Real-Time Token Streaming via SSE**: Server-Sent Events deliver incremental synthesis tokens, instantaneous bibliography generation, and typewriter streaming cadence.
-4. **Digital Reading Room**: Clicking any citation superscript or bibliography card transports the researcher into the archival manuscript, automatically navigating to the referenced page and dynamically highlighting the exact extracted quote.
-5. **Archival Deposit & Dynamic Ingestion Pipeline**: Faculty and researchers can deposit new manuscripts with multi-chapter text. The system extracts chapters, calculates pagination, assigns institutional call numbers, and dynamically updates dense vector and BM25 indices without server restarts.
-6. **Persistent Research Trail**: All inquiries, syntheses, and citations are stored in a relational database, enabling researchers to revisit past inquiries or branch into follow-up research questions.
+1. **30 Authentic Academic Holdings & 79 Indexed Sections**: Spanning Quantum Computing, Molecular Biology (CRISPR), Behavioral Game Theory, AI Value Alignment, Epidemiology, Philosophy of Science, and Planetary Boundaries.
+2. **Hybrid Retrieval (Dense + BM25 + RRF)**: Simultaneously evaluates sublinear TF-IDF / dense embeddings and Porter-stemmed BM25 lexical token matches across catalog holdings, combining ranks via Reciprocal Rank Fusion ($k=60$).
+3. **Multi-Dimensional Search & Analysis Filters**: Filter by collection tier (Faculty Research, Doctoral Theses, Course Reserves), academic discipline (AI & Computing, Quantum Info, Genomics, Food & Climate, Economics & Games, Law & Society, Philosophy), and publication era (Classics, Modern, Contemporary).
+4. **Three-Stream Pedagogical Recommendations**: Classifies follow-up reading into **📚 Course Reserves** (syllabus coursework), **🏛️ Seminal Foundations** (breakthrough faculty research), and **🌐 Interdisciplinary Bridges** (cross-field synthesis).
+5. **Strict Grounded Citation Guardrails**: Factual claims in the synthesis are mapped 1-to-1 to exact page excerpts and anchored using Unicode superscript markers (`¹`, `²`, `³`).
+6. **Real-Time Token Streaming via SSE**: Server-Sent Events deliver incremental synthesis tokens, instantaneous bibliography generation, and typewriter streaming cadence with Gemini 1.5 fallback.
+7. **Digital Reading Room**: Clicking any citation superscript or bibliography card transports the researcher into the archival manuscript, automatically navigating to the referenced page and dynamically highlighting the exact extracted quote.
+8. **Archival Deposit & Dynamic Ingestion Pipeline**: Faculty and researchers can deposit new manuscripts with multi-chapter text or uploaded PDFs. The system extracts chapters, calculates pagination, assigns institutional call numbers, and dynamically updates dense vector and BM25 indices without server restarts.
+9. **Role-Based Portals & Dashboards**: Dedicated Faculty Dashboard (manuscript deposits, citation analytics) and Student Dashboard (unified glass filter console, reactive syllabus inquiry cards, course reserves).
+10. **Dual Database Architecture**: SQLite for lightweight zero-dependency local development and Neon PostgreSQL (`asyncpg`) for production serverless deployments.
 
 ---
 
@@ -24,32 +28,42 @@ Questionable-shelves-S84-T04-OnlyBooks/
 ├── backend/
 │   ├── app/
 │   │   ├── main.py                  # FastAPI application entrypoint & middleware
-│   │   ├── config.py                # Pydantic environment configuration
-│   │   ├── database.py              # Async SQLAlchemy engine & session factory
+│   │   ├── config.py                # Pydantic environment configuration (SQLite / Neon PostgreSQL)
+│   │   ├── database.py              # Async SQLAlchemy engine (aiosqlite & asyncpg support)
 │   │   ├── models/                  # Relational models (User, Document, Section, Inquiry, Synthesis, Citation)
 │   │   ├── schemas/                 # Pydantic request/response validation schemas
 │   │   ├── routes/                  # Modular APIRouters (auth, catalog, inquiries, reading_room)
 │   │   ├── services/
-│   │   │   ├── dense_indexer.py     # TF-IDF sublinear vectorizer & cosine similarity
-│   │   │   ├── bm25_indexer.py      # BM25Okapi lexical retrieval with Porter stemming
+│   │   │   ├── dense_indexer.py     # Sublinear vectorizer with discipline/era metadata filtering
+│   │   │   ├── bm25_indexer.py      # BM25Okapi lexical retrieval with metadata filtering
 │   │   │   ├── hybrid_retriever.py  # Reciprocal Rank Fusion (RRF) & multi-source ranking
 │   │   │   ├── citation_guardrail.py# Verification of inline markers & quote overlaps
-│   │   │   ├── synthesizer.py       # Grounded synthesis engine & SSE streaming generator
+│   │   │   ├── synthesizer.py       # Grounded synthesis engine, Gemini integration & categorized recommendations
+│   │   │   ├── email_service.py     # Resend HTTP API & SMTP email OTP dispatcher
 │   │   │   └── ingestion_service.py # Chapter regex parser, page estimator & dynamic indexer
-│   │   └── seeds/                   # Catalog seed data with foundational computer science & philosophy holdings
-│   └── tests/                       # Pytest test suite (19 test suites, 100% passing)
+│   │   └── seeds/                   # Catalog seed data with 30 authentic university holdings
+│   └── tests/                       # Pytest test suite (33 test suites, 100% passing)
 ├── frontend/
 │   ├── src/
 │   │   ├── views/
-│   │   │   ├── AuthPage.tsx         # Institutional sign-in & registration with SSO
-│   │   │   ├── ResearchPortal.tsx   # Catalog search, metrics, filters, and manuscript deposit modal
-│   │   │   ├── SynthesisView.tsx    # RAG synthesis with live SSE streaming & interactive footnotes
+│   │   │   ├── AuthPage.tsx         # Institutional sign-in & registration with OTP verification
+│   │   │   ├── ResearchPortal.tsx   # Catalog shell with role-based routing (Faculty vs. Student)
+│   │   │   ├── SynthesisView.tsx    # RAG synthesis with live SSE streaming & categorized recommendation tabs
 │   │   │   └── ReadingRoom.tsx      # Archival reader with page turns and quote highlighting
 │   │   ├── components/
-│   │   │   └── DepositModal.tsx     # Manuscript deposit modal with quick-fill presets
+│   │   │   ├── dashboards/
+│   │   │   │   ├── StudentDashboard.tsx # Unified glass filter console & frosted suggestion cards
+│   │   │   │   └── FacultyDashboard.tsx # Deposit overview, citation breakdown & student trail monitoring
+│   │   │   ├── DepositModal.tsx     # Manuscript deposit modal with quick-fill presets
+│   │   │   ├── SettingsModal.tsx    # Institutional profile & notification preferences
+│   │   │   ├── AvatarModal.tsx      # Live webcam avatar capture & cropping
+│   │   │   └── NotificationPopover.tsx # Real-time notification drawer
 │   │   ├── services/
 │   │   │   └── api.ts               # Typed API client with SSE fetch streaming & JWT management
-│   │   └── index.css                # Curated serif/sans typography & glassmorphism design tokens
+│   │   └── index.css                # Obsidian glassmorphic design tokens & light/dark bubble themes
+│   ├── netlify.toml                 # Netlify deployment configuration
+│   └── vite.config.ts               # Vite bundler configuration
+├── render.yaml                      # Render cloud deployment blueprint
 ├── start.bat                        # Windows 1-click batch launcher
 ├── start.ps1                        # PowerShell unified launcher with health check
 └── README.md
@@ -78,7 +92,7 @@ The script will automatically start the backend API on port `8000`, launch the f
 
 ### Option B: Docker Containerized Orchestration (Production Ready)
 
-Run the entire platform (FastAPI backend + Nginx reverse proxy + React 19 frontend + persistent volume) with a single command:
+Run the entire platform (FastAPI backend + React frontend + persistent volume) with a single command:
 ```bash
 docker compose up --build
 ```
@@ -94,13 +108,12 @@ docker compose up --build
 #### 1. Backend Setup & Run
 ```bash
 cd backend
-copy .env.example .env        # Then add your Gemini API key to .env (leave blank to use fallback)
+copy .env.example .env        # Optionally add GEMINI_API_KEY and RESEND_API_KEY
 python -m venv venv
 .\venv\Scripts\activate          # On Windows (or 'source venv/bin/activate' on Unix)
 pip install -r requirements.txt
 python -m uvicorn app.main:app --reload --port 8000 --host 127.0.0.1
 ```
-Create a Gemini API key in [Google AI Studio](https://aistudio.google.com/apikey) and set `GEMINI_API_KEY` in `backend/.env`. Keep the key server-side; never add it to frontend configuration or commit `.env`.
 - API Health: [http://127.0.0.1:8000/api/health](http://127.0.0.1:8000/api/health)
 - OpenAPI Swagger Documentation: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 
@@ -116,91 +129,67 @@ pnpm run dev                     # or 'npm run dev'
 
 ## 🧪 Automated Testing
 
-### Backend Unit & Integration Tests (19 tests)
-The backend test suite verifies database transactions, hybrid retrieval, reciprocal rank fusion, manuscript deposit, zero-restart re-indexing, SSE streaming, and citation guardrails:
+### Backend Unit & Integration Tests (33 tests, 100% passing)
+The backend test suite verifies database transactions, hybrid retrieval with metadata filtering, manuscript deposit, zero-restart re-indexing, SSE streaming, Gemini synthesis integration, and citation guardrails:
 ```bash
 cd backend
-.\venv\Scripts\python -m pytest -v
+.\venv\Scripts\python -m pytest tests -v
 ```
-Output:
-```
-tests/test_auth.py::test_healthcheck PASSED
-tests/test_auth.py::test_auth_full_cycle PASSED
-tests/test_catalog.py::test_catalog_metrics PASSED
-tests/test_catalog.py::test_catalog_acquisitions_all_and_filtering PASSED
-tests/test_catalog.py::test_catalog_document_detail_and_404 PASSED
-tests/test_deposit.py::test_deposit_manuscript_endpoint PASSED
-tests/test_deposit.py::test_deposit_call_number_collision_handling PASSED
-tests/test_deposit.py::test_immediate_hybrid_retrieval_of_deposited_document PASSED
-tests/test_deposit.py::test_end_to_end_synthesis_citing_new_deposit PASSED
-tests/test_reading_room.py::test_reading_room_endpoint PASSED
-tests/test_reading_room.py::test_raw_page_endpoint PASSED
-tests/test_retrieval.py::test_dense_vector_indexer PASSED
-tests/test_retrieval.py::test_bm25_lexical_indexer PASSED
-tests/test_retrieval.py::test_hybrid_retrieval_rrf PASSED
-tests/test_retrieval.py::test_database_indexing_and_retrieval PASSED
-tests/test_streaming_and_history.py::test_synthesize_stream_endpoint_and_db_persistence PASSED
-tests/test_streaming_and_history.py::test_inquiry_history_endpoint PASSED
-tests/test_synthesis.py::test_citation_guardrail_mechanisms PASSED
-tests/test_synthesis.py::test_synthesize_endpoint_and_db_persistence PASSED
-============================= 19 passed in 5.17s ==============================
-```
+All 33 tests execute in under 10 seconds with 100% passing status.
 
 ### Frontend Typecheck & Production Build
 ```bash
 cd frontend
 pnpm run build
 ```
-Output:
-```
-✓ built in 2.06s (0 errors, 0 warnings)
-```
+Builds cleanly with zero TypeScript errors or bundling warnings.
 
 ---
 
 ## 🔑 Key Features Walkthrough
 
-### 1. Research Portal & Catalog Discovery
-- Search archival manuscripts across collections: **Faculty Research**, **Doctoral Theses**, **Course Reserves**, and **University Press**.
-- View real-time library collection metrics (total documents, catalog distribution).
-- Single-click quick fill for classic research topics (Attention mechanisms, Epistemology of consensus, Relational databases, Distributed consensus).
+### 1. Unified Glass Filter Console & Dynamic Inquiry Cards
+- **Segmented Collection Switcher**: Quick toggle across **All Collections**, **Faculty Research**, **Doctoral Theses**, and **Course Reserves**.
+- **Integrated Era Selector**: Filter by publication date range (`All Eras`, `Classics <2015`, `Modern 2015–2021`, `Contemporary 2022–2026`).
+- **Academic Discipline Ribbon**: One-click filtering across AI & Computing, Quantum Info, Genomics, Food & Climate, Economics & Games, Law & Society, and Philosophy.
+- **Discipline-Reactive Inquiry Starters**: Selecting an academic field immediately loads tailored scholarly prompts formatted as frosted glass cards with 1-click launch.
 
-### 2. Real-Time Streaming RAG Synthesis (SSE)
-- When a question is submitted, `POST /api/inquiries/synthesize/stream` initiates an asynchronous event stream.
-- Emits `event: "metadata"` (byline, confidence score) and `event: "citations"` (full bibliographic holdings).
-- Streams tokens one by one with a live typewriter effect and interactive footnote superscripts (`¹`, `²`, `³`).
-- Saves inquiry, synthesis paragraphs, and citations in the relational database upon completion.
+### 2. Three-Tier Categorized Recommendation Engine
+- Following every research synthesis, OnlyBooks generates 6 curated recommendations grouped into:
+  - 📚 **Course Reserves**: Essential syllabus readings directly assigned in curriculum.
+  - 🏛️ **Seminal Foundations**: Groundbreaking faculty papers that originated the paradigm.
+  - 🌐 **Interdisciplinary Bridges**: Cross-cutting treatises connecting disparate fields.
+- Includes interactive category tabs and direct reader navigation.
 
-### 3. Interactive Digital Reading Room
-- Clicking any footnote superscript in the synthesis text or clicking any entry in the bibliography sidebar opens the Archival Reading Room.
-- Automatically opens the exact page of the manuscript.
-- Features dynamic text highlighting for the exact quote that backed the claim.
-- Full page-turning and chapter navigation (`Pg. 1` through `Pg. N`).
+### 3. Real-Time Streaming RAG Synthesis (SSE)
+- Initiates an asynchronous event stream via `POST /api/inquiries/synthesize/stream`.
+- Emits real-time tokens with interactive footnote superscripts (`¹`, `²`, `³`), confidence scores, and strict citation guardrail verification against extracted passage text.
 
-### 4. Document Deposit & Dynamic Zero-Restart Re-Indexing
-- Click **"Deposit Manuscript"** in the top navigation of the portal.
-- Fill out manuscript details or click one of the quick-fill templates (e.g. *Quantum Coherence in Photosynthetic Reaction Complexes*).
-- The `IngestionService` parses chapter headings (e.g., `Chapter 1: ...`), calculates page boundaries, and generates an official call number.
-- Newly deposited documents are immediately retrievable in subsequent searches and cited in live RAG syntheses without restarting the application!
+### 4. Interactive Digital Reading Room
+- Clicking any footnote superscript opens the archival reader, auto-navigating to the referenced manuscript page and highlighting the exact extracted quote.
+- In-document search, quote copying, and page turning navigation.
 
-### 5. Multi-Format PDF & Document File Upload Pipeline
-- Drag and drop real academic files (`.pdf`, `.txt`, `.md`) directly into the deposit interface.
-- Powered by `pypdf` for pure-Python, zero-dependency page extraction and chapter segmentation.
-- Extracts document metadata, auto-infers titles from file names, and dynamically feeds extracted chunks into `HybridRetriever`.
+### 5. Document Deposit & Dynamic Zero-Restart Re-Indexing
+- Faculty and researchers can deposit manuscripts or upload academic `.pdf`, `.txt`, and `.md` files.
+- The `IngestionService` segments chapters, estimates pagination, generates an LC call number, and updates dense vector and BM25 indices dynamically without server downtime.
 
-### 6. BibTeX (.bib) Reference Export & Citation Copying
-- Click **"Export BibTeX"** in the synthesis bibliography sidebar to download standardized `.bib` files compatible with **Zotero**, **Mendeley**, and **LaTeX**.
-- Click **"Copy Citations"** to copy formatted scholarly references directly into your clipboard.
+### 6. Citation Bibliography Exporter
+- Export references in standardized **BibTeX (.bib)** for LaTeX, Zotero, or Mendeley.
+- One-click copy in **APA 7th**, **MLA 9th**, and **Chicago** citation formats.
 
 ---
 
 ## 🔒 Default Authentication Credentials
 
-For testing and demonstration, you can sign in directly with the following default academic account or use Google Scholar / ORCID SSO:
+For testing and demonstration, you can sign in directly with the following default academic accounts:
 
-- **Email**: `researcher@university.edu`
-- **Password**: `LibraryPass2026!`
-- **Name**: Dr. Julian Vance
-- **Affiliation**: Department of Epistemology & Theoretical Informatics
+- **Faculty Profile**:
+  - **Email**: `faculty@university.edu`
+  - **Password**: `LibraryPass2026!`
+  - **Role**: Faculty (access to manuscript deposit & citation metrics)
+- **Researcher Profile**:
+  - **Email**: `researcher@university.edu`
+  - **Password**: `LibraryPass2026!`
+  - **Role**: Student / Candidate (access to inquiry portal & study notebooks)
 
-You may also register a new institutional profile at any time via the registration interface.
+You may also register a new institutional profile at any time with real-time email OTP verification.

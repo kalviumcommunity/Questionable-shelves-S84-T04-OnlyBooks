@@ -61,6 +61,7 @@ class HybridRetriever:
                         chapter_num=sec.chapter_num,
                         chapter_title=sec.chapter_title,
                         text_content=sec.content_text or f"{doc.title} - {sec.chapter_title}",
+                        metadata={"field": doc.field, "year": doc.year},
                     )
                     chunks.append(chunk)
             else:
@@ -77,6 +78,7 @@ class HybridRetriever:
                     chapter_num="Overview",
                     chapter_title=doc.title,
                     text_content=f"{doc.title} by {doc.author}. Field: {doc.field}. Call Number: {doc.call_number}",
+                    metadata={"field": doc.field, "year": doc.year},
                 )
                 chunks.append(chunk)
 
@@ -88,6 +90,8 @@ class HybridRetriever:
         query: str,
         top_k: int = 5,
         collection_filter: Optional[str] = None,
+        field_filter: Optional[str] = None,
+        era_filter: Optional[str] = None,
         candidate_pool: int = 25,
         apply_reranking: bool = True,
     ) -> List[RetrievalResult]:
@@ -104,6 +108,8 @@ class HybridRetriever:
             query,
             top_k=candidate_pool,
             collection_filter=collection_filter,
+            field_filter=field_filter,
+            era_filter=era_filter,
         )
 
         # 2. BM25 candidates
@@ -111,6 +117,8 @@ class HybridRetriever:
             query,
             top_k=candidate_pool,
             collection_filter=collection_filter,
+            field_filter=field_filter,
+            era_filter=era_filter,
         )
 
         # 3. Fuse via Reciprocal Rank Fusion
