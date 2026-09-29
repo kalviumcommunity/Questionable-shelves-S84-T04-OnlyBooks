@@ -786,7 +786,7 @@ export default function AuthPage({ onAuth, onOpenGuide }: Props) {
                     </div>
                   )}
                   <div style={{ fontSize: "0.71rem", color: "var(--text-secondary)", marginTop: "0.45rem", lineHeight: 1.4 }}>
-                    💡 <em>Tip: You can also set <code>VITE_API_URL</code> in Render/Netlify Environment Variables.</em>
+                    💡 <em>Set <code>VITE_API_URL</code> on the frontend build service (Netlify site or Render static site), then redeploy. A backend-only setting is not included in the Vite build.</em>
                   </div>
                 </div>
               )}

@@ -1,21 +1,23 @@
 const API_URL_KEY = "onlybooks_api_url";
 
+function normalizeApiBaseUrl(value: string): string {
+  let raw = value.trim();
+  if (!raw || raw === "/api") return "/api";
+
+  if (!/^https?:\/\//i.test(raw)) {
+    const isLocal = /^(localhost|127(?:\.\d{1,3}){3})(:\d+)?(?:\/|$)/i.test(raw);
+    raw = `${isLocal ? "http" : "https"}://${raw}`;
+  }
+
+  raw = raw.replace(/\/+$/, "");
+  return raw.endsWith("/api") ? raw : `${raw}/api`;
+}
+
 export function getApiBaseUrl(): string {
   // Priority: 1. Runtime override in localStorage, 2. Build-time Vite env, 3. Default relative "/api"
   const stored = typeof window !== "undefined" ? localStorage.getItem(API_URL_KEY) : null;
   const envUrl = (import.meta as any).env?.VITE_API_URL;
-  let raw = (stored || envUrl || "/api").trim();
-
-  if (!raw || raw === "/api") return "/api";
-
-  // Remove trailing slashes
-  raw = raw.replace(/\/+$/, "");
-
-  // If user provided origin without /api prefix (e.g. "https://backend.onrender.com"), append /api
-  if (!raw.endsWith("/api")) {
-    raw = `${raw}/api`;
-  }
-  return raw;
+  return normalizeApiBaseUrl(stored || envUrl || "/api");
 }
 
 export function setApiBaseUrl(url: string): void {
@@ -33,10 +35,7 @@ export function clearApiBaseUrl(): void {
 
 export async function checkApiHealth(customUrl?: string): Promise<{ ok: boolean; status: number; message: string }> {
   try {
-    let target = customUrl ? customUrl.trim().replace(/\/+$/, "") : getApiBaseUrl();
-    if (target !== "/api" && !target.endsWith("/api")) {
-      target = `${target}/api`;
-    }
+    const target = normalizeApiBaseUrl(customUrl || getApiBaseUrl());
     
     // First try target with /health
     let res: Response;
