@@ -37,6 +37,8 @@ class BM25LexicalIndexer:
         query: str,
         top_k: int = 10,
         collection_filter: Optional[str] = None,
+        field_filter: Optional[str] = None,
+        era_filter: Optional[str] = None,
     ) -> List[Tuple[LibraryChunk, float]]:
         """
         Execute BM25 search for the given query string.
@@ -56,6 +58,23 @@ class BM25LexicalIndexer:
             if collection_filter and collection_filter.lower() != "all":
                 if chunk.collection_id.lower() != collection_filter.lower():
                     continue
+
+            if field_filter and field_filter.lower() != "all":
+                chunk_field = chunk.metadata.get("field", "") if chunk.metadata else ""
+                target_field = field_filter.lower()
+                if target_field not in chunk_field.lower() and target_field not in chunk.title.lower():
+                    continue
+
+            if era_filter and era_filter.lower() != "all":
+                year_match = re.search(r"\b(19\d\d|20\d\d)\b", chunk.year)
+                y_val = int(year_match.group(1)) if year_match else 2020
+                if era_filter == "classic" and y_val >= 2015:
+                    continue
+                elif era_filter == "modern" and not (2015 <= y_val <= 2021):
+                    continue
+                elif era_filter == "contemporary" and y_val < 2022:
+                    continue
+
             score = float(scores[i])
             if score > 0.0:
                 candidates.append((chunk, score))
