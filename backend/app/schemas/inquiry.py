@@ -5,6 +5,7 @@ class InquiryRequest(BaseModel):
     question: str = Field(..., min_length=3, description="Scholarly research question")
     collection_filter: Optional[str] = Field(default="all", description="Collection filter: all, papers, theses, reserves, press")
     user_id: Optional[str] = Field(default=None, description="Optional user ID for inquiry tracking")
+    context_inquiry_id: Optional[str] = Field(default=None, description="Prior inquiry whose cited passages ground a follow-up")
     top_k: int = Field(default=4, ge=1, le=10, description="Number of source passages to retrieve")
 
 class CitationItem(BaseModel):

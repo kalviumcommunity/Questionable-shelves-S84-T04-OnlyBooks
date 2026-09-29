@@ -401,6 +401,7 @@ export interface InquiryRequest {
   question: string;
   collection_filter?: string;
   user_id?: string;
+  context_inquiry_id?: string;
   top_k?: number;
 }
 

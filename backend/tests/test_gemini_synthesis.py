@@ -1,9 +1,10 @@
 import pytest
 import json
+from types import SimpleNamespace
 from unittest.mock import patch, AsyncMock, MagicMock
 from app.services.synthesizer import GroundedSynthesizer
 from app.services.chunk_models import LibraryChunk, RetrievalResult
-from app.schemas.inquiry import InquiryRequest
+from app.schemas.inquiry import InquiryRequest, SynthesisParagraph
 
 @pytest.fixture
 def mock_candidates():
@@ -50,6 +51,105 @@ def test_build_gemini_prompt(mock_candidates):
     assert "Kuhn, Thomas" in user_prompt
     assert "[2] (Footnote Marker: ²)" in user_prompt
     assert "Popper, Karl" in user_prompt
+
+    _, follow_up_prompt = synthesizer._build_gemini_prompt(
+        "What does that imply?",
+        mock_candidates,
+        "Original inquiry: paradigm change\nPrevious response: Kuhn describes normal science.",
+    )
+    assert "Previous response: Kuhn describes normal science." in follow_up_prompt
+    assert 'Follow-up research inquiry: "What does that imply?"' in follow_up_prompt
+
+
+def test_gemini_prompt_allows_general_guidance_without_sources():
+    synthesizer = GroundedSynthesizer()
+    system_instruction, user_prompt = synthesizer._build_gemini_prompt(
+        "Give me some good books for meditation.", []
+    )
+
+    assert "general knowledge" in system_instruction
+    assert "not verified against this library's holdings" in system_instruction
+    assert "do not invent citations or use footnote markers" in system_instruction
+    assert "No relevant library holdings were found" in user_prompt
+
+
+@pytest.mark.asyncio
+async def test_no_sources_uses_general_gemini_without_citations():
+    synthesizer = GroundedSynthesizer()
+    request = InquiryRequest(question="Give me some good books for meditation.")
+    retriever = MagicMock()
+    retriever.retrieve.return_value = []
+    gemini_call = AsyncMock(
+        return_value=[SynthesisParagraph(text="General guidance: try a beginner-friendly meditation guide.")]
+    )
+
+    with patch("app.services.synthesizer.settings.GEMINI_API_KEY", "test-key"):
+        with patch("app.services.synthesizer.get_hybrid_retriever", return_value=retriever):
+            with patch.object(synthesizer, "_call_gemini_synthesis", gemini_call):
+                response = await synthesizer.synthesize(request)
+
+    gemini_call.assert_awaited_once_with(request.question, [], None)
+    assert response.citations == []
+    assert response.attribution_score == 0.0
+    assert response.summary_byline == "General Gemini guidance · No matching library holdings"
+
+
+@pytest.mark.asyncio
+async def test_followup_uses_saved_citation_sources_for_gemini():
+    synthesizer = GroundedSynthesizer()
+    document = SimpleNamespace(
+        id="doc-1",
+        title="Structure of Scientific Revolutions",
+        author="Kuhn, Thomas",
+        year="1962",
+        collection_id="theses",
+        call_number="THES-1962-PHIL-001",
+        journal_or_press="University Press",
+        field="Philosophy",
+    )
+    citation = SimpleNamespace(
+        id="citation-1",
+        document_id="doc-1",
+        page_ref="Pg. 54",
+        extracted_quote="Normal science works within an accepted paradigm.",
+        chapter_num="THES-1962-PHIL-001",
+        confidence_score=0.9,
+        document=document,
+    )
+    previous_inquiry = SimpleNamespace(
+        question="How does Kuhn define normal science?",
+        syntheses=[SimpleNamespace(
+            body_text="Kuhn describes normal science as work within a paradigm.¹",
+            citations=[citation],
+        )],
+    )
+    query_result = MagicMock()
+    query_result.scalars.return_value.first.return_value = previous_inquiry
+    db = MagicMock()
+    db.execute = AsyncMock(return_value=query_result)
+    db.commit = AsyncMock()
+
+    request = InquiryRequest(
+        question="What does that imply for paradigm shifts?",
+        context_inquiry_id="inq-prior",
+    )
+    gemini_call = AsyncMock(
+        return_value=[SynthesisParagraph(text="The passage frames shifts against established practice.¹")]
+    )
+
+    with patch("app.services.synthesizer.settings.GEMINI_API_KEY", "test-key"):
+        with patch.object(synthesizer, "_call_gemini_synthesis", gemini_call):
+            with patch("app.services.synthesizer.get_hybrid_retriever") as retriever_factory:
+                response = await synthesizer.synthesize(request, db=db)
+
+    retriever_factory.assert_not_called()
+    gemini_call.assert_awaited_once()
+    gemini_args = gemini_call.await_args.args
+    assert gemini_args[0] == request.question
+    assert gemini_args[1][0].chunk.document_id == "doc-1"
+    assert gemini_args[1][0].chunk.text_content == citation.extracted_quote
+    assert "Original inquiry: How does Kuhn define normal science?" in gemini_args[2]
+    assert response.citations[0].document_id == "doc-1"
 
 @pytest.mark.asyncio
 async def test_gemini_fallback_when_no_api_key(mock_candidates):
@@ -125,7 +225,7 @@ async def test_gemini_live_call_success_mocked(mock_candidates):
                 assert response.attribution_score >= 0.85
 
 @pytest.mark.asyncio
-async def test_gemini_api_error_graceful_fallback(mock_candidates):
+async def test_gemini_api_error_graceful_fallback(mock_candidates, capsys):
     synthesizer = GroundedSynthesizer()
     request = InquiryRequest(
         question="How do paradigms shift?",
@@ -154,6 +254,7 @@ async def test_gemini_api_error_graceful_fallback(mock_candidates):
                 assert response is not None
                 assert len(response.paragraphs) > 0
                 assert len(response.citations) == 2
+                assert "Internal Server Error" not in capsys.readouterr().out
 
 @pytest.mark.asyncio
 async def test_gemini_stream_request_contract(mock_candidates):
