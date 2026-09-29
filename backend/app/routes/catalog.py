@@ -46,6 +46,7 @@ async def get_catalog_metrics(db: AsyncSession = Depends(get_db)):
 @router.get("/acquisitions", response_model=AcquisitionsResponse)
 async def get_acquisitions(
     collection: Optional[str] = Query(default="all", description="Collection filter: all, papers, theses, reserves, press"),
+    field: Optional[str] = Query(default=None, description="Discipline/field filter (e.g. Computer Science, Economics, Environmental, Quantum)"),
     search: Optional[str] = Query(default=None, description="Search keyword in title, author, field, or call number"),
     sort_by: Optional[str] = Query(default="newest", description="Sorting criteria: newest, oldest, title, author, pages"),
     year_from: Optional[str] = Query(default=None, description="Filter documents published from year"),
@@ -54,13 +55,16 @@ async def get_acquisitions(
     offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
 ):
-    """Retrieve catalog acquisitions with collection filtering, search, year range, and sorting."""
+    """Retrieve catalog acquisitions with collection filtering, field filtering, search, year range, and sorting."""
     query = select(Document, Collection.name.label("collection_name")).join(
         Collection, Document.collection_id == Collection.id, isouter=True
     )
 
     if collection and collection.lower() != "all":
         query = query.where(Document.collection_id == collection.lower().strip())
+
+    if field and field.lower() != "all":
+        query = query.where(Document.field.ilike(f"%{field.strip()}%"))
 
     if search and search.strip():
         term = f"%{search.strip()}%"
@@ -88,9 +92,9 @@ async def get_acquisitions(
     if sort_by == "oldest":
         query = query.order_by(Document.year.asc(), Document.created_at.asc())
     elif sort_by == "title":
-        query = query.order_by(Document.title.asc())
+        query = query.order_by(func.lower(Document.title).asc())
     elif sort_by == "author":
-        query = query.order_by(Document.author.asc())
+        query = query.order_by(func.lower(Document.author).asc())
     elif sort_by == "pages":
         query = query.order_by(Document.total_pages.desc())
     else:  # default: newest
