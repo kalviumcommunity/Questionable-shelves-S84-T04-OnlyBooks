@@ -789,7 +789,6 @@ export default function SynthesisView({
                     ))}
                   </ol>
                 </div>
-              </div>
 
                 {/* ── Recommended Books & Research Papers ── */}
                 {recommendedReadings.length > 0 && (
@@ -931,7 +930,7 @@ export default function SynthesisView({
                     </div>
                   </div>
                 )}
-              </>
+              </div>
             )}
             <div style={{ height: "6rem" }} />
           </div>

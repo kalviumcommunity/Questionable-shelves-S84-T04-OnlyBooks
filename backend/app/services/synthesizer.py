@@ -290,23 +290,6 @@ class GroundedSynthesizer:
     def __init__(self):
         self.guardrail = CitationGuardrail()
 
-    def _build_gemini_prompt(
-        self,
-        question: str,
-        candidates: List[RetrievalResult],
-        follow_up_context: Optional[str] = None,
-    ) -> Tuple[str, str]:
-        """Construct scholarly prompt and source holdings for Gemini LLM generation."""
-        grounded_instruction = (
-            "You are OnlyBooks, a prestigious university research librarian and academic synthesizer.\n"
-            "Your audience consists of university researchers, faculty scholars, and undergraduate students.\n\n"
-            "CRITICAL RULES:\n"
-            "1. Synthesize a coherent, authoritative academic response answering the user's inquiry strictly based on the numbered source passages below.\n"
-            "2. EVERY factual assertion, claim, or quote must be followed by an exact unicode superscript footnote marker (¹ for [1], ² for [2], ³ for [3], ⁴ for [4], ⁵ for [5]) corresponding to the source passage index.\n"
-            "3. Do NOT invent outside facts, sources, or citations. Ground every statement in the provided literature excerpts.\n"
-            "4. Organize your response into 2 to 3 scholarly paragraphs: an introduction and theoretical framing, deep substantive analysis contrasting claims if applicable, and a synthesis.\n"
-            "5. Treat prior conversation only as context; the provided source excerpts are the sole authority for factual claims. Correct unsupported prior claims.\n"
-            "6. Maintain an elevated, peer-reviewed academic tone. Never use bullet points, casual greetings, or chatbot conversational filler."
     def _extract_query_keywords(self, query: str) -> List[str]:
         words = re.findall(r"\b\w{3,}\b", query.lower())
         return [w for w in words if w not in STOP_WORDS]
@@ -400,9 +383,14 @@ class GroundedSynthesizer:
             for item in top_items
         ]
 
-    def _build_gemini_prompt(self, question: str, candidates: List[RetrievalResult]) -> Tuple[str, str]:
+    def _build_gemini_prompt(
+        self,
+        question: str,
+        candidates: List[RetrievalResult],
+        follow_up_context: Optional[str] = None,
+    ) -> Tuple[str, str]:
         """Construct scholarly prompt and source holdings for Gemini LLM generation."""
-        system_instruction = (
+        grounded_instruction = (
             "You are OnlyBooks, a university research librarian and academic citation synthesizer.\n"
             "Your audience consists of university researchers, faculty scholars, and undergraduate students.\n\n"
             "CRITICAL RULES:\n"
@@ -443,15 +431,15 @@ class GroundedSynthesizer:
             if follow_up_context
             else f"Research Inquiry: \"{question}\""
         )
+        response_instruction = (
+            "Please provide a concise, citation-grounded scholarly explanation with inline unicode superscript footnote markers (¹²³)."
+            if candidates
+            else "Give a useful general answer. For a recommendation request, provide 3 to 5 specific suggestions."
+        )
         user_prompt = (
             f"{inquiry_context}\n\n"
             f"Available University Library Holdings:\n{sources_text}\n\n"
-            + (
-                "Provide a concise, source-grounded synthesis with inline unicode superscript footnote markers (¹²³)."
-                if candidates
-                else "Give a useful general answer. For a recommendation request, provide 3 to 5 specific suggestions."
-            )
-            "Please provide your concise, citation-grounded scholarly explanation with inline unicode superscript footnote markers (¹²³):"
+            f"{response_instruction}"
         )
         return system_instruction, user_prompt
 
@@ -541,7 +529,9 @@ class GroundedSynthesizer:
                         "Gemini is unavailable right now, so I can't provide an unverified general answer. "
                         "Try a different search or ask a librarian to add relevant materials."
                     )
-                )
+                ),
+                SynthesisParagraph(
+                    text=(
                         f"The university library archive does not currently index primary course reserves or faculty monographs "
                         f"directly focused on '{clean_q}'. To preserve academic integrity and avoid empirical misattribution, "
                         "the catalog does not force unrelated manuscripts to answer this inquiry."
@@ -712,13 +702,7 @@ class GroundedSynthesizer:
                     )
                     return candidates[:request.top_k], follow_up_context
 
-        retriever = get_hybrid_retriever()
-        candidates = retriever.retrieve(
-            query=request.question,
-            top_k=request.top_k,
-            collection_filter=request.collection_filter,
-        )
-        return candidates, None
+        return [], None
 
     async def synthesize(
         self,
@@ -730,16 +714,18 @@ class GroundedSynthesizer:
         calculate companion reading recommendations, and optionally persist to relational DB.
         """
         candidates, follow_up_context = await self._get_candidates_and_context(request, db)
-        retriever = get_hybrid_retriever()
-        candidates = retriever.retrieve(
-            query=request.question,
-            top_k=request.top_k,
-            collection_filter=request.collection_filter,
-            field_filter=request.field_filter,
-            era_filter=request.era_filter,
-        )
-
-        is_relevant, relevant_candidates = self._evaluate_relevance(request.question, candidates)
+        if follow_up_context:
+            is_relevant, relevant_candidates = True, candidates
+        else:
+            retriever = get_hybrid_retriever()
+            candidates = retriever.retrieve(
+                query=request.question,
+                top_k=request.top_k,
+                collection_filter=request.collection_filter,
+                field_filter=request.field_filter,
+                era_filter=request.era_filter,
+            )
+            is_relevant, relevant_candidates = self._evaluate_relevance(request.question, candidates)
         active_candidates = relevant_candidates[:request.top_k] if is_relevant else []
 
         # Build verified citation items
@@ -771,10 +757,9 @@ class GroundedSynthesizer:
         paragraphs = None
         if settings.GEMINI_API_KEY:
             paragraphs = await self._call_gemini_synthesis(
-                request.question, candidates, follow_up_context
+                request.question, active_candidates, follow_up_context
             )
-        if is_relevant and settings.GEMINI_API_KEY:
-            paragraphs = await self._call_gemini_synthesis(request.question, active_candidates)
+        gemini_succeeded = bool(paragraphs)
         if not paragraphs:
             paragraphs = self._generate_fallback_synthesis(request.question, active_candidates, is_relevant=is_relevant)
 
@@ -785,12 +770,6 @@ class GroundedSynthesizer:
         else:
             attribution_score = 0.0
             warnings = []
-        # Verification through guardrails
-        if is_relevant and citations:
-            is_valid, attribution_score, warnings = self.guardrail.verify_citations(paragraphs, citations)
-        else:
-            attribution_score = 0.50
-
         # Summary byline
         distinct_holdings = len(set(c.document_id for c in citations))
         byline_field = " · ".join(unique_fields) if unique_fields else "University Library Archive"
@@ -806,6 +785,8 @@ class GroundedSynthesizer:
                 f"Synthesized from {distinct_holdings} University Library Holding"
                 f"{'s' if distinct_holdings != 1 else ''} · {byline_field}"
             )
+        elif gemini_succeeded:
+            summary_byline = "General Gemini guidance · No matching library holdings"
         else:
             summary_byline = f"Library Advisory · General Catalog Search for '{request.question.strip()}'"
 
@@ -869,16 +850,18 @@ class GroundedSynthesizer:
         Emits metadata, citations, typewriter tokens, recommendations, and done completion.
         """
         candidates, follow_up_context = await self._get_candidates_and_context(request, db)
-        retriever = get_hybrid_retriever()
-        candidates = retriever.retrieve(
-            query=request.question,
-            top_k=request.top_k,
-            collection_filter=request.collection_filter,
-            field_filter=request.field_filter,
-            era_filter=request.era_filter,
-        )
-
-        is_relevant, relevant_candidates = self._evaluate_relevance(request.question, candidates)
+        if follow_up_context:
+            is_relevant, relevant_candidates = True, candidates
+        else:
+            retriever = get_hybrid_retriever()
+            candidates = retriever.retrieve(
+                query=request.question,
+                top_k=request.top_k,
+                collection_filter=request.collection_filter,
+                field_filter=request.field_filter,
+                era_filter=request.era_filter,
+            )
+            is_relevant, relevant_candidates = self._evaluate_relevance(request.question, candidates)
         active_candidates = relevant_candidates[:request.top_k] if is_relevant else []
 
         citations: List[CitationItem] = []
@@ -906,23 +889,19 @@ class GroundedSynthesizer:
                 unique_fields.add(chunk.field)
 
         distinct_holdings = len(set(c.document_id for c in citations))
-        byline_field = " · ".join(unique_fields) if unique_fields else "University Library Archive"
-        summary_byline = (
-            f"Synthesized from {distinct_holdings} University Library Holding"
-            f"{'s' if distinct_holdings != 1 else ''} · {byline_field}"
-            if citations
-            else "General Gemini guidance · No matching library holdings"
-        )
-        if is_relevant and distinct_holdings > 0:
+        if citations:
             byline_field = " · ".join(unique_fields) if unique_fields else "University Library Archive"
             summary_byline = (
                 f"Synthesized from {distinct_holdings} University Library Holding"
                 f"{'s' if distinct_holdings != 1 else ''} · {byline_field}"
             )
             initial_score = 0.95
+        elif settings.GEMINI_API_KEY:
+            summary_byline = "General Gemini guidance · No matching library holdings"
+            initial_score = 0.0
         else:
             summary_byline = f"Library Advisory · General Catalog Search for '{request.question.strip()}'"
-            initial_score = 0.50
+            initial_score = 0.0
 
         recommendations = self._generate_recommendations(
             request.question, active_candidates, is_relevant, field_filter=request.field_filter
@@ -935,7 +914,6 @@ class GroundedSynthesizer:
             "inquiry_id": inquiry_id,
             "question": request.question,
             "summary_byline": summary_byline,
-            "attribution_score": 0.94 if citations else 0.0,
             "attribution_score": initial_score,
             "total_citations": len(citations),
         }
@@ -954,13 +932,12 @@ class GroundedSynthesizer:
         accumulated_paragraphs: List[str] = [""]
         gemini_streamed_success = False
 
-        if is_relevant and settings.GEMINI_API_KEY:
+        if settings.GEMINI_API_KEY:
             try:
                 cur_p = 0
                 async for event in self._stream_gemini_synthesis(
-                    request.question, candidates, follow_up_context
+                    request.question, active_candidates, follow_up_context
                 ):
-                async for event in self._stream_gemini_synthesis(request.question, active_candidates):
                     gemini_streamed_success = True
                     if event["type"] == "token":
                         while len(accumulated_paragraphs) <= event["paragraph_idx"]:
@@ -1018,6 +995,9 @@ class GroundedSynthesizer:
         if not paragraphs:
             paragraphs = [SynthesisParagraph(text="Synthesis completed based on archival holdings.")]
 
+        if not citations and not gemini_streamed_success:
+            summary_byline = f"Library Advisory · General Catalog Search for '{request.question.strip()}'"
+
         if citations:
             is_valid, attribution_score, warnings = self.guardrail.verify_citations(
                 paragraphs, citations
@@ -1025,11 +1005,6 @@ class GroundedSynthesizer:
         else:
             attribution_score = 0.0
             warnings = []
-        if is_relevant and citations:
-            is_valid, attribution_score, warnings = self.guardrail.verify_citations(paragraphs, citations)
-        else:
-            attribution_score = 0.50
-
         # Yield recommendations event
         recs_event = {
             "event": "recommendations",
