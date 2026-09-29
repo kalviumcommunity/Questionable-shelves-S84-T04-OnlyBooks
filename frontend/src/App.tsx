@@ -14,6 +14,8 @@ export interface Query {
   timestamp: string;
   collectionFilter?: string;
   contextInquiryId?: string;
+  fieldFilter?: string;
+  eraFilter?: string;
 }
 
 export interface User {
@@ -145,6 +147,8 @@ export default function App() {
     question: string,
     collectionFilter: string = "all",
     contextInquiryId?: string,
+    fieldFilter: string = "all",
+    eraFilter: string = "all"
   ) {
     const q: Query = {
       id: `q-${Date.now()}`,
@@ -152,6 +156,8 @@ export default function App() {
       timestamp: new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" }),
       collectionFilter,
       contextInquiryId,
+      fieldFilter,
+      eraFilter,
     };
     setQueryHistory((prev) => [q, ...prev]);
     setActiveQuery(q);

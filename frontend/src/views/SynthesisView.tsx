@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, KeyboardEvent } from "react";
 import ReadingRoom from "./ReadingRoom";
 import { ThemeToggle, type Query, type User } from "../App";
 import { getSynthesisForQuery, Citation, DocumentRecord } from "../data/libraryKnowledge";
-import { inquiryApi } from "../services/api";
+import { inquiryApi, RecommendedReadingItem } from "../services/api";
 import Reveal from "../components/Reveal";
 import UserMenu from "../components/UserMenu";
 import NotificationPopover from "../components/NotificationPopover";
@@ -100,6 +100,8 @@ export default function SynthesisView({
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [conversation, setConversation] = useState<ConversationTurn[]>([]);
   const conversationRef = useRef<ConversationTurn[]>([]);
+  const [recommendedReadings, setRecommendedReadings] = useState<RecommendedReadingItem[]>([]);
+  const [recCategoryFilter, setRecCategoryFilter] = useState<string>("all");
   const [synthesis, setSynthesis] = useState<{
     summaryByline: string;
     paragraphs: { text: string }[];
@@ -153,6 +155,8 @@ export default function SynthesisView({
         ? [...conversationRef.current.slice(0, parentTurnIndex + 1), currentTurn]
         : [currentTurn];
     replaceConversation(nextConversation);
+    setRecommendedReadings([]);
+    setRecCategoryFilter("all");
 
     const localFallback = getSynthesisForQuery(activeQuery.question);
 
@@ -190,6 +194,9 @@ export default function SynthesisView({
             citations: mappedCitations,
             status: "complete",
           }));
+          if (res.recommended_readings && res.recommended_readings.length > 0) {
+            setRecommendedReadings(res.recommended_readings);
+          }
           setLoading(false);
           setIsStreaming(false);
         })
@@ -208,6 +215,8 @@ export default function SynthesisView({
           question: activeQuery.question,
           collection_filter: activeQuery.collectionFilter || "all",
           context_inquiry_id: activeQuery.contextInquiryId,
+          field_filter: activeQuery.fieldFilter || "all",
+          era_filter: activeQuery.eraFilter || "all",
         },
         {
           onMetadata: (meta) => {
@@ -305,10 +314,17 @@ export default function SynthesisView({
               return { ...turn, paragraphs };
             });
           },
+          onRecommendations: (recs) => {
+            if (isCancelled) return;
+            setRecommendedReadings(recs);
+          },
           onDone: (done) => {
             if (isCancelled) return;
             setIsStreaming(false);
             setLoading(false);
+            if (done.recommended_readings && done.recommended_readings.length > 0) {
+              setRecommendedReadings(done.recommended_readings);
+            }
             setSynthesis((prev) => {
               if (!prev) return prev;
               return {
@@ -332,6 +348,8 @@ export default function SynthesisView({
                 question: activeQuery.question,
                 collection_filter: activeQuery.collectionFilter || "all",
                 context_inquiry_id: activeQuery.contextInquiryId,
+                field_filter: activeQuery.fieldFilter || "all",
+                era_filter: activeQuery.eraFilter || "all",
               })
               .then((res) => {
                 if (isCancelled) return;
@@ -364,6 +382,9 @@ export default function SynthesisView({
                   citations: mappedCitations,
                   status: "complete",
                 }));
+                if (res.recommended_readings && res.recommended_readings.length > 0) {
+                  setRecommendedReadings(res.recommended_readings);
+                }
                 setLoading(false);
                 setIsStreaming(false);
               })
@@ -395,7 +416,7 @@ export default function SynthesisView({
       isCancelled = true;
       if (abortStream) abortStream();
     };
-  }, [activeQuery.id, activeQuery.question, activeQuery.collectionFilter]);
+  }, [activeQuery.id, activeQuery.question, activeQuery.collectionFilter, activeQuery.fieldFilter, activeQuery.eraFilter]);
 
   function submitFollowUp() {
     const t = followUp.trim();
@@ -416,6 +437,23 @@ export default function SynthesisView({
   function openDoc(id: number) {
     const found = synthesis?.citations.find((c) => c.id === id) ?? null;
     setOpenCitation(found);
+  }
+
+  function openRecommendedDoc(rec: RecommendedReadingItem) {
+    const pseudoCitation: Citation = {
+      id: 900 + Math.floor(Math.random() * 90),
+      title: rec.title,
+      author: rec.author,
+      year: rec.year,
+      journal: rec.publication_venue || "University Library Holding",
+      page: "Ch. 1",
+      callNumber: rec.call_number,
+      collectionType: rec.collection_type,
+      documentId: rec.document_id,
+      extractedQuote: rec.relevance_note,
+      marker: "Rec",
+    };
+    setOpenCitation(pseudoCitation);
   }
 
   const rightColWidth = openCitation ? "60%" : "25%";
@@ -639,6 +677,18 @@ export default function SynthesisView({
                   <span style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--text-primary)", background: "var(--accent-light)", border: "1px solid var(--border-strong)", padding: "0.2rem 0.6rem", borderRadius: "12px", fontWeight: 600 }}>
                     Attribution: {Math.round(synthesis.attributionScore * 100)}% Grounded
                   </span>
+
+                  {activeQuery.fieldFilter && activeQuery.fieldFilter !== "all" && (
+                    <span style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-primary)", background: "var(--accent-light)", border: "1px solid var(--border-strong)", padding: "0.2rem 0.6rem", borderRadius: "12px", fontWeight: 600 }}>
+                      Discipline: {activeQuery.fieldFilter}
+                    </span>
+                  )}
+
+                  {activeQuery.eraFilter && activeQuery.eraFilter !== "all" && (
+                    <span style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-primary)", background: "var(--accent-light)", border: "1px solid var(--border-strong)", padding: "0.2rem 0.6rem", borderRadius: "12px", fontWeight: 600 }}>
+                      Era: {activeQuery.eraFilter}
+                    </span>
+                  )}
                   
                   {isStreaming && (
                     <span style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--text-primary)", background: "var(--accent-light)", border: "1px solid var(--border-strong)", padding: "0.2rem 0.6rem", borderRadius: "12px", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
@@ -647,6 +697,32 @@ export default function SynthesisView({
                     </span>
                   )}
                 </div>
+
+                {/* Library Archival Advisory if low attribution / zero citations */}
+                {synthesis.attributionScore <= 0.60 && (
+                  <div
+                    style={{
+                      padding: "1rem 1.25rem",
+                      background: "var(--accent-light)",
+                      border: "1px solid var(--border-strong)",
+                      borderRadius: "12px",
+                      marginBottom: "2rem",
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: "0.75rem",
+                    }}
+                  >
+                    <span style={{ fontSize: "1.25rem", lineHeight: 1 }}>🏛️</span>
+                    <div>
+                      <p style={{ margin: 0, fontSize: "0.85rem", fontWeight: 600, color: "var(--text-primary)" }}>
+                        University Library Archival Advisory
+                      </p>
+                      <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.78rem", color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                        No direct course reserve was cataloged for this exact phrase. OnlyBooks evaluated relevance to protect citation integrity and synthesized an interdisciplinary overview from our holdings. Explore the recommended research papers and books below.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 {/* Article body */}
                 <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
@@ -714,6 +790,148 @@ export default function SynthesisView({
                   </ol>
                 </div>
               </div>
+
+                {/* ── Recommended Books & Research Papers ── */}
+                {recommendedReadings.length > 0 && (
+                  <div style={{ marginTop: "3.5rem", paddingTop: "2rem", borderTop: "1px solid var(--border-light)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "1.25rem", flexWrap: "wrap", gap: "0.5rem" }}>
+                      <div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                          <span style={{ fontSize: "1rem" }}>📚</span>
+                          <p style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.14em", color: "var(--text-primary)", margin: 0, fontWeight: 700 }}>
+                            Recommended Books &amp; Research Papers
+                          </p>
+                        </div>
+                        <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)", margin: "0.25rem 0 0 0" }}>
+                          Curated university holdings and companion manuscripts recommended for your inquiry
+                        </p>
+                      </div>
+
+                      {/* Category Filter Chips */}
+                      <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                        {[
+                          { id: "all", label: `All (${recommendedReadings.length})` },
+                          { id: "Core Reserve", label: "📚 Course Reserves" },
+                          { id: "Seminal Paper", label: "🏛️ Seminal Foundations" },
+                          { id: "Interdisciplinary", label: "🌐 Interdisciplinary" },
+                        ].map((cat) => (
+                          <button
+                            key={cat.id}
+                            onClick={() => setRecCategoryFilter(cat.id)}
+                            className="btn-ghost"
+                            style={{
+                              fontSize: "0.68rem",
+                              padding: "0.2rem 0.55rem",
+                              borderRadius: "12px",
+                              border: "1px solid",
+                              borderColor: recCategoryFilter === cat.id ? "var(--accent)" : "var(--border-strong)",
+                              background: recCategoryFilter === cat.id ? "var(--accent-light)" : "transparent",
+                              color: recCategoryFilter === cat.id ? "var(--text-primary)" : "var(--text-secondary)",
+                              fontWeight: recCategoryFilter === cat.id ? 700 : 500,
+                              cursor: "pointer",
+                            }}
+                          >
+                            {cat.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Filtered Grid */}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1rem" }}>
+                      {recommendedReadings
+                        .filter((r) => recCategoryFilter === "all" || r.category === recCategoryFilter)
+                        .map((rec, i) => (
+                        <Reveal key={rec.document_id || i} delay={0.08 * i}>
+                          <div
+                            className="glass-panel-hover"
+                            style={{
+                              padding: "1.2rem",
+                              borderRadius: "12px",
+                              border: "1px solid var(--border-strong)",
+                              background: "var(--bg-secondary)",
+                              display: "flex",
+                              flexDirection: "column",
+                              justifyContent: "space-between",
+                              gap: "0.9rem",
+                              height: "100%",
+                              boxSizing: "border-box",
+                              transition: "all 0.25s ease",
+                            }}
+                          >
+                            <div>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.5rem", gap: "0.5rem" }}>
+                                <div style={{ display: "flex", gap: "0.3rem", flexWrap: "wrap" }}>
+                                  <span style={{ fontSize: "0.58rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-primary)", background: "var(--accent-light)", border: "1px solid var(--border-strong)", padding: "0.15rem 0.45rem", borderRadius: "10px" }}>
+                                    {rec.collection_type}
+                                  </span>
+                                  {rec.category && (
+                                    <span style={{ fontSize: "0.58rem", fontWeight: 600, color: "var(--text-secondary)", background: "var(--bg-primary)", border: "1px solid var(--border-light)", padding: "0.15rem 0.45rem", borderRadius: "10px" }}>
+                                      {rec.category}
+                                    </span>
+                                  )}
+                                </div>
+                                <span style={{ fontSize: "0.62rem", color: "var(--text-secondary)", fontFamily: "var(--font-mono, monospace)" }}>
+                                  {rec.call_number}
+                                </span>
+                              </div>
+
+                              <h4 style={{ fontFamily: "var(--font-serif)", fontSize: "0.95rem", lineHeight: 1.4, color: "var(--text-primary)", margin: "0 0 0.35rem 0", fontWeight: 600 }}>
+                                {rec.title}
+                              </h4>
+                              <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)", margin: "0 0 0.6rem 0" }}>
+                                {rec.author} ({rec.year}) · <span style={{ opacity: 0.8 }}>{rec.field}</span>
+                              </p>
+
+                              <p style={{ fontSize: "0.75rem", lineHeight: 1.5, color: "var(--text-secondary)", margin: 0, borderLeft: "2px solid var(--accent)", paddingLeft: "0.6rem", fontStyle: "italic" }}>
+                                {rec.recommendation_reason}
+                              </p>
+                            </div>
+
+                            <div style={{ display: "flex", gap: "0.5rem", borderTop: "1px solid var(--border-light)", paddingTop: "0.75rem" }}>
+                              <button
+                                onClick={() => openRecommendedDoc(rec)}
+                                className="btn-primary"
+                                style={{
+                                  flex: 1,
+                                  fontSize: "0.72rem",
+                                  padding: "0.4rem 0.6rem",
+                                  borderRadius: "6px",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  gap: "0.3rem",
+                                }}
+                                title="Open this document in the Reading Room reader"
+                              >
+                                <span>📖</span>
+                                <span>Read in Library</span>
+                              </button>
+                              <button
+                                onClick={() => onQuery(rec.title, rec.collection_type || "all")}
+                                className="btn-ghost"
+                                style={{
+                                  fontSize: "0.72rem",
+                                  padding: "0.4rem 0.6rem",
+                                  borderRadius: "6px",
+                                  border: "1px solid var(--border-strong)",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "0.3rem",
+                                }}
+                                title="Synthesize citations specifically for this document"
+                              >
+                                <span>🔍</span>
+                                <span>Inquire</span>
+                              </button>
+                            </div>
+                          </div>
+                        </Reveal>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
             <div style={{ height: "6rem" }} />
           </div>
