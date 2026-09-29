@@ -59,7 +59,7 @@ def test_reranker_relevance_scoring(sample_candidates):
     # Query clearly targeting the neuroplasticity topic (chunk-2)
     reranked = reranker.rerank("adult neural rewiring diffusion tensor imaging", sample_candidates, top_k=2)
 
-    assert len(reranked) == 2
+    assert len(reranked) == 1
     # chunk-2 should be promoted to rank 1 due to high cross-matching
     top_hit = reranked[0]
     assert top_hit.chunk.chunk_id == "chunk-2"
@@ -69,6 +69,10 @@ def test_reranker_relevance_scoring(sample_candidates):
 def test_reranker_empty_input():
     reranker = Reranker()
     assert reranker.rerank("quantum query", [], top_k=5) == []
+
+def test_reranker_rejects_candidates_without_query_terms(sample_candidates):
+    reranker = Reranker()
+    assert reranker.rerank("give me some good books for meditation", sample_candidates) == []
 
 def test_hybrid_retriever_two_stage_pipeline():
     c1 = LibraryChunk(

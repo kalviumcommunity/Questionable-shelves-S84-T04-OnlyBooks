@@ -3,6 +3,14 @@ import math
 from typing import List, Optional
 from .chunk_models import RetrievalResult
 
+QUERY_STOP_WORDS = {
+    "a", "about", "an", "and", "are", "as", "at", "be", "book", "books",
+    "by", "can", "do", "for", "from", "give", "good", "how", "i", "in",
+    "into", "is", "it", "me", "of", "on", "or", "recommend", "recommendations",
+    "some", "that", "the", "their", "this", "to", "what", "when", "which",
+    "with", "you", "your",
+}
+
 class Reranker:
     """
     Two-Stage Cross-Encoder Relevance Reranker as specified in plan.md Section 6.1.
@@ -48,9 +56,27 @@ class Reranker:
         if not candidates:
             return []
 
-        query_tokens = self._tokenize(query)
+        query_tokens = [
+            token for token in self._tokenize(query)
+            if token not in QUERY_STOP_WORDS
+        ]
         if not query_tokens:
             return candidates[:top_k]
+
+        relevant_candidates = []
+        for candidate in candidates:
+            chunk = candidate.chunk
+            candidate_text = (
+                f"{chunk.title} {chunk.chapter_title} {chunk.text_content} "
+                f"{chunk.author} {chunk.call_number}"
+            )
+            candidate_tokens = set(self._tokenize(candidate_text))
+            if any(token in candidate_tokens for token in query_tokens):
+                relevant_candidates.append(candidate)
+
+        if not relevant_candidates:
+            return []
+        candidates = relevant_candidates
 
         # Normalize RRF scores among candidate pool
         max_rrf = max(c.rrf_score for c in candidates) if candidates else 1.0

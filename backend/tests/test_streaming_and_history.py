@@ -1,6 +1,7 @@
 import json
 import asyncio
 import pytest
+from unittest.mock import patch
 from httpx import AsyncClient, ASGITransport
 from app.main import app
 from app.services import hybrid_retriever
@@ -27,7 +28,7 @@ async def test_synthesize_stream_endpoint_and_db_persistence():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         payload = {
-            "question": "How does attention replace recurrence in sequence modeling?",
+            "question": "How do scientific communities share paradigm commitments and respond to anomalies?",
             "collection_filter": "all",
             "top_k": 3,
         }
@@ -81,6 +82,50 @@ async def test_synthesize_stream_endpoint_and_db_persistence():
         assert len(saved_data["paragraphs"]) > 0
         assert len(saved_data["citations"]) > 0
 
+
+@pytest.mark.asyncio
+async def test_followup_stream_reuses_original_inquiry_sources():
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        with patch("app.services.synthesizer.settings.GEMINI_API_KEY", None):
+            initial_response = await ac.post(
+                "/api/inquiries/synthesize",
+                json={
+                    "question": "How do scientific communities share paradigm commitments and respond to anomalies?",
+                    "collection_filter": "all",
+                    "top_k": 3,
+                },
+            )
+            assert initial_response.status_code == 200
+            initial_data = initial_response.json()
+            initial_document_ids = {
+                citation["document_id"] for citation in initial_data["citations"]
+            }
+            assert initial_document_ids
+
+            async with ac.stream(
+                "POST",
+                "/api/inquiries/synthesize/stream",
+                json={
+                    "question": "How do those sources explain its limitations?",
+                    "collection_filter": "all",
+                    "context_inquiry_id": initial_data["inquiry_id"],
+                },
+            ) as followup_response:
+                assert followup_response.status_code == 200
+                events = [
+                    json.loads(line[6:])
+                    async for line in followup_response.aiter_lines()
+                    if line.startswith("data: ")
+                ]
+
+    followup_citations = next(event for event in events if event["event"] == "citations")
+    followup_document_ids = {
+        citation["document_id"] for citation in followup_citations["citations"]
+    }
+    assert followup_document_ids == initial_document_ids
+    assert events[-1]["event"] == "done"
+
 @pytest.mark.asyncio
 async def test_inquiry_history_endpoint():
     """Verify that GET /api/inquiries returns recent inquiries in reverse chronological order."""
@@ -92,7 +137,7 @@ async def test_inquiry_history_endpoint():
         assert r1.status_code == 200
 
         # Create second inquiry
-        q2 = {"question": "Feminist critiques of Rawlsian distributive justice", "collection_filter": "theses"}
+        q2 = {"question": "Adult neuroplasticity and second-language acquisition", "collection_filter": "theses"}
         r2 = await ac.post("/api/inquiries/synthesize", json=q2)
         assert r2.status_code == 200
 

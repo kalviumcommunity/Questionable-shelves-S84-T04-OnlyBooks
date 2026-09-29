@@ -1,4 +1,4 @@
-import { useState, useEffect, KeyboardEvent } from "react";
+import { useState, useEffect, useRef, KeyboardEvent } from "react";
 import ReadingRoom from "./ReadingRoom";
 import { ThemeToggle, type Query, type User } from "../App";
 import { getSynthesisForQuery, Citation, DocumentRecord } from "../data/libraryKnowledge";
@@ -15,13 +15,22 @@ interface Paragraph {
   text: string; // may contain Unicode superscripts ¹²³⁴⁵ as inline footnote markers
 }
 
+interface ConversationTurn {
+  queryId: string;
+  question: string;
+  paragraphs: Paragraph[];
+  citations: Citation[];
+  inquiryId?: string;
+  status: "loading" | "streaming" | "complete";
+}
+
 interface Props {
   user: User;
   activeQuery: Query;
   queryHistory: Query[];
   onSelectQuery: (q: Query) => void;
   onNewSearch: () => void;
-  onQuery: (question: string, collectionFilter?: string) => void;
+  onQuery: (question: string, collectionFilter?: string, contextInquiryId?: string) => void;
   onOpenGuide?: () => void;
   onSignOut: () => void;
 }
@@ -89,6 +98,8 @@ export default function SynthesisView({
   const [openCitation, setOpenCitation] = useState<Citation | null>(null);
   const [followUp, setFollowUp] = useState("");
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [conversation, setConversation] = useState<ConversationTurn[]>([]);
+  const conversationRef = useRef<ConversationTurn[]>([]);
   const [recommendedReadings, setRecommendedReadings] = useState<RecommendedReadingItem[]>([]);
   const [recCategoryFilter, setRecCategoryFilter] = useState<string>("all");
   const [synthesis, setSynthesis] = useState<{
@@ -100,6 +111,24 @@ export default function SynthesisView({
     documents: Record<number, DocumentRecord>;
   } | null>(null);
 
+  function replaceConversation(turns: ConversationTurn[]) {
+    conversationRef.current = turns;
+    setConversation(turns);
+  }
+
+  function updateConversationTurn(
+    queryId: string,
+    update: (turn: ConversationTurn) => ConversationTurn,
+  ) {
+    setConversation((currentTurns) => {
+      const updatedTurns = currentTurns.map((turn) =>
+        turn.queryId === queryId ? update(turn) : turn,
+      );
+      conversationRef.current = updatedTurns;
+      return updatedTurns;
+    });
+  }
+
   // Fetch or stream live RAG synthesis with fallback to library catalog knowledge
   useEffect(() => {
     let isCancelled = false;
@@ -107,6 +136,25 @@ export default function SynthesisView({
     setLoading(true);
     setOpenCitation(null);
     setActiveFootnote(null);
+    setSynthesis(null);
+
+    const parentTurnIndex = activeQuery.contextInquiryId
+      ? conversationRef.current.findIndex(
+          (turn) => turn.inquiryId === activeQuery.contextInquiryId,
+        )
+      : -1;
+    const currentTurn: ConversationTurn = {
+      queryId: activeQuery.id,
+      question: activeQuery.question,
+      paragraphs: [],
+      citations: [],
+      status: "loading",
+    };
+    const nextConversation =
+      parentTurnIndex >= 0
+        ? [...conversationRef.current.slice(0, parentTurnIndex + 1), currentTurn]
+        : [currentTurn];
+    replaceConversation(nextConversation);
     setRecommendedReadings([]);
     setRecCategoryFilter("all");
 
@@ -139,6 +187,13 @@ export default function SynthesisView({
             inquiryId: res.inquiry_id,
             documents: localFallback.documents,
           });
+          updateConversationTurn(activeQuery.id, (turn) => ({
+            ...turn,
+            inquiryId: res.inquiry_id,
+            paragraphs: res.paragraphs,
+            citations: mappedCitations,
+            status: "complete",
+          }));
           if (res.recommended_readings && res.recommended_readings.length > 0) {
             setRecommendedReadings(res.recommended_readings);
           }
@@ -159,6 +214,7 @@ export default function SynthesisView({
         {
           question: activeQuery.question,
           collection_filter: activeQuery.collectionFilter || "all",
+          context_inquiry_id: activeQuery.contextInquiryId,
           field_filter: activeQuery.fieldFilter || "all",
           era_filter: activeQuery.eraFilter || "all",
         },
@@ -172,6 +228,10 @@ export default function SynthesisView({
               attributionScore: meta.attribution_score,
               inquiryId: meta.inquiry_id,
               documents: localFallback.documents,
+            }));
+            updateConversationTurn(activeQuery.id, (turn) => ({
+              ...turn,
+              inquiryId: meta.inquiry_id,
             }));
           },
           onCitations: (cits) => {
@@ -197,6 +257,10 @@ export default function SynthesisView({
               inquiryId: prev?.inquiryId,
               documents: localFallback.documents,
             }));
+            updateConversationTurn(activeQuery.id, (turn) => ({
+              ...turn,
+              citations: mapped,
+            }));
           },
           onToken: (token, paragraphIdx) => {
             if (isCancelled) return;
@@ -218,6 +282,16 @@ export default function SynthesisView({
                 documents: prev?.documents || localFallback.documents,
               };
             });
+            updateConversationTurn(activeQuery.id, (turn) => {
+              const paragraphs = [...turn.paragraphs];
+              while (paragraphs.length <= paragraphIdx) {
+                paragraphs.push({ text: "" });
+              }
+              paragraphs[paragraphIdx] = {
+                text: paragraphs[paragraphIdx].text + token,
+              };
+              return { ...turn, paragraphs, status: "streaming" };
+            });
           },
           onParagraphBreak: (paragraphIdx) => {
             if (isCancelled) return;
@@ -231,6 +305,13 @@ export default function SynthesisView({
                 ...prev,
                 paragraphs: currentParas,
               };
+            });
+            updateConversationTurn(activeQuery.id, (turn) => {
+              const paragraphs = [...turn.paragraphs];
+              while (paragraphs.length <= paragraphIdx + 1) {
+                paragraphs.push({ text: "" });
+              }
+              return { ...turn, paragraphs };
             });
           },
           onRecommendations: (recs) => {
@@ -253,6 +334,11 @@ export default function SynthesisView({
                 inquiryId: done.inquiry_id,
               };
             });
+            updateConversationTurn(activeQuery.id, (turn) => ({
+              ...turn,
+              inquiryId: done.inquiry_id,
+              status: "complete",
+            }));
           },
           onError: (err) => {
             console.warn("Stream error, falling back to batch synthesis:", err);
@@ -261,6 +347,7 @@ export default function SynthesisView({
               .synthesize({
                 question: activeQuery.question,
                 collection_filter: activeQuery.collectionFilter || "all",
+                context_inquiry_id: activeQuery.contextInquiryId,
                 field_filter: activeQuery.fieldFilter || "all",
                 era_filter: activeQuery.eraFilter || "all",
               })
@@ -288,6 +375,13 @@ export default function SynthesisView({
                   inquiryId: res.inquiry_id,
                   documents: localFallback.documents,
                 });
+                updateConversationTurn(activeQuery.id, (turn) => ({
+                  ...turn,
+                  inquiryId: res.inquiry_id,
+                  paragraphs: res.paragraphs,
+                  citations: mappedCitations,
+                  status: "complete",
+                }));
                 if (res.recommended_readings && res.recommended_readings.length > 0) {
                   setRecommendedReadings(res.recommended_readings);
                 }
@@ -304,6 +398,12 @@ export default function SynthesisView({
                   attributionScore: 1.0,
                   documents: localFallback.documents,
                 });
+                updateConversationTurn(activeQuery.id, (turn) => ({
+                  ...turn,
+                  paragraphs: localFallback.paragraphs,
+                  citations: localFallback.citations,
+                  status: "complete",
+                }));
                 setLoading(false);
                 setIsStreaming(false);
               });
@@ -321,7 +421,11 @@ export default function SynthesisView({
   function submitFollowUp() {
     const t = followUp.trim();
     if (t) {
-      onQuery(t, activeQuery.collectionFilter || "all");
+      const contextInquiryId =
+        synthesis?.inquiryId ||
+        activeQuery.contextInquiryId ||
+        (activeQuery.id.startsWith("inq-") ? activeQuery.id : undefined);
+      onQuery(t, activeQuery.collectionFilter || "all", contextInquiryId);
       setFollowUp("");
     }
   }
@@ -479,25 +583,57 @@ export default function SynthesisView({
         >
           {/* Scrollable article */}
           <div style={{ flex: 1, padding: "3rem 4rem", maxWidth: 840, margin: "0 auto", width: "100%" }}>
-            {/* H1 — the query */}
-            <Reveal delay={0}>
-            <h1
-              style={{
-                fontFamily: "var(--font-display)",
-                fontSize: "2.25rem",
-                lineHeight: 1.25,
-                fontWeight: 600,
-                marginBottom: "2rem",
-                letterSpacing: "-0.02em",
-                color: "var(--text-primary)"
-              }}
-            >
-              {activeQuery.question}
-            </h1>
-            </Reveal>
+            <div style={{ marginBottom: "2rem" }}>
+              <MetaTag>Research conversation</MetaTag>
+              <p style={{ fontSize: "0.78rem", color: "var(--text-secondary)", margin: "0.45rem 0 0" }}>
+                Answers use library sources when available; otherwise Gemini labels general guidance.
+              </p>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem", marginBottom: "2rem" }}>
+              {conversation
+                .filter((turn) => turn.queryId !== activeQuery.id)
+                .map((turn) => (
+                  <div key={turn.queryId} style={{ display: "flex", flexDirection: "column", gap: "0.8rem" }}>
+                    <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                      <div style={{ maxWidth: "84%", padding: "0.9rem 1.1rem", background: "var(--accent-light)", border: "1px solid var(--border-strong)", borderRadius: "16px 16px 4px 16px" }}>
+                        <MetaTag>You</MetaTag>
+                        <p style={{ margin: "0.35rem 0 0", lineHeight: 1.6, color: "var(--text-primary)" }}>{turn.question}</p>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: "0.7rem" }}>
+                      <span aria-hidden="true" style={{ width: 28, height: 28, flexShrink: 0, display: "grid", placeItems: "center", border: "1px solid var(--border-strong)", borderRadius: "50%", color: "var(--text-primary)", fontSize: "0.68rem", fontWeight: 700 }}>O</span>
+                      <div style={{ maxWidth: "90%", minWidth: 0, padding: "0.95rem 1.1rem", background: "var(--bg-secondary)", border: "1px solid var(--border-light)", borderRadius: "4px 16px 16px 16px" }}>
+                        <MetaTag>OnlyBooks</MetaTag>
+                        {turn.paragraphs.length > 0 ? turn.paragraphs.map((paragraph, index) => (
+                          <p key={index} style={{ margin: "0.55rem 0 0", lineHeight: 1.7, color: "var(--text-primary)", fontFamily: "var(--font-serif)", whiteSpace: "pre-wrap" }}>{paragraph.text}</p>
+                        )) : (
+                          <p style={{ margin: "0.55rem 0 0", color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+                            {turn.status === "loading" || turn.status === "streaming" ? "Preparing a source-grounded reply…" : "No response available."}
+                          </p>
+                        )}
+                        {turn.citations.length > 0 && (
+                          <p style={{ margin: "0.7rem 0 0", paddingTop: "0.55rem", borderTop: "1px solid var(--border-light)", fontSize: "0.68rem", color: "var(--text-secondary)" }}>
+                            {turn.citations.length} cited library {turn.citations.length === 1 ? "holding" : "holdings"}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "1rem" }}>
+              <div style={{ maxWidth: "84%", padding: "0.9rem 1.1rem", background: "var(--accent-light)", border: "1px solid var(--border-strong)", borderRadius: "16px 16px 4px 16px" }}>
+                <MetaTag>You</MetaTag>
+                <p style={{ margin: "0.35rem 0 0", lineHeight: 1.6, color: "var(--text-primary)" }}>{activeQuery.question}</p>
+              </div>
+            </div>
 
             {loading || !synthesis ? (
-              <div>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: "0.7rem", marginBottom: "2rem" }}>
+                <span aria-hidden="true" style={{ width: 28, height: 28, flexShrink: 0, display: "grid", placeItems: "center", border: "1px solid var(--border-strong)", borderRadius: "50%", color: "var(--text-primary)", fontSize: "0.68rem", fontWeight: 700 }}>O</span>
+                <div style={{ flex: 1, minWidth: 0, padding: "1rem 1.2rem", background: "var(--bg-secondary)", border: "1px solid var(--border-light)", borderRadius: "4px 16px 16px 16px" }}>
                 <div
                   style={{
                     display: "inline-flex",
@@ -526,12 +662,13 @@ export default function SynthesisView({
                   <div style={{ height: 16, background: "var(--border-strong)", width: "91%", borderRadius: 4 }} className="animate-pulse" />
                   <div style={{ height: 16, background: "var(--border-strong)", width: "87%", borderRadius: 4 }} className="animate-pulse" />
                 </div>
+                </div>
               </div>
             ) : (
-              <>
+              <div style={{ padding: "1.1rem 1.25rem", background: "var(--bg-secondary)", border: "1px solid var(--border-light)", borderRadius: "4px 16px 16px 16px", marginBottom: "2rem" }}>
                 {/* Metadata byline */}
                 <div style={{ borderBottom: "1px solid var(--border-light)", paddingBottom: "1.5rem", marginBottom: "2.5rem", display: "flex", gap: "1.25rem", alignItems: "center", flexWrap: "wrap" }}>
-                  <MetaTag>Library Synthesis</MetaTag>
+                  <MetaTag>{synthesis.summaryByline}</MetaTag>
                   <MetaTag>
                     {new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
                   </MetaTag>
@@ -652,6 +789,7 @@ export default function SynthesisView({
                     ))}
                   </ol>
                 </div>
+              </div>
 
                 {/* ── Recommended Books & Research Papers ── */}
                 {recommendedReadings.length > 0 && (
@@ -799,18 +937,20 @@ export default function SynthesisView({
           </div>
 
           {/* ── Floating follow-up bar ── */}
-          <div style={{ position: "absolute", bottom: "2rem", left: "50%", transform: "translateX(-50%)", width: "90%", maxWidth: 640 }}>
+          <div style={{ position: "absolute", bottom: "1.25rem", left: "50%", transform: "translateX(-50%)", width: "90%", maxWidth: 720 }}>
             <div className="glass-panel" style={{ padding: "0.5rem", display: "flex", alignItems: "center", gap: "0.75rem", borderRadius: "12px", border: "1px solid var(--border-strong)" }}>
               <input
                 type="text"
                 value={followUp}
                 onChange={(e) => setFollowUp(e.target.value)}
                 onKeyDown={onKey}
-                placeholder="Ask a citation-backed follow-up question…"
+                disabled={isStreaming || loading}
+                placeholder="Ask a follow-up about these sources…"
+                aria-label="Ask a follow-up question"
                 style={{ flex: 1, background: "transparent", border: "none", outline: "none", fontSize: "0.9rem", color: "var(--text-primary)", padding: "0.75rem 1rem", fontFamily: "var(--font-sans)" }}
               />
-              <button onClick={submitFollowUp} className="btn-primary" style={{ padding: "0.6rem 1.2rem", fontSize: "0.8rem", borderRadius: "8px" }}>
-                Submit
+              <button onClick={submitFollowUp} disabled={!followUp.trim() || isStreaming || loading} className="btn-primary" style={{ padding: "0.6rem 1.2rem", fontSize: "0.8rem", borderRadius: "8px", opacity: !followUp.trim() || isStreaming || loading ? 0.5 : 1, cursor: !followUp.trim() || isStreaming || loading ? "not-allowed" : "pointer" }}>
+                {isStreaming ? "Replying…" : "Send"}
               </button>
             </div>
           </div>

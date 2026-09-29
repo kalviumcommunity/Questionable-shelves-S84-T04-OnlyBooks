@@ -405,6 +405,7 @@ export interface InquiryRequest {
   field_filter?: string;
   era_filter?: string;
   user_id?: string;
+  context_inquiry_id?: string;
   top_k?: number;
 }
 

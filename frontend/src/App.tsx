@@ -13,6 +13,7 @@ export interface Query {
   question: string;
   timestamp: string;
   collectionFilter?: string;
+  contextInquiryId?: string;
   fieldFilter?: string;
   eraFilter?: string;
 }
@@ -145,6 +146,7 @@ export default function App() {
   function handleQuery(
     question: string,
     collectionFilter: string = "all",
+    contextInquiryId?: string,
     fieldFilter: string = "all",
     eraFilter: string = "all"
   ) {
@@ -153,6 +155,7 @@ export default function App() {
       question,
       timestamp: new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" }),
       collectionFilter,
+      contextInquiryId,
       fieldFilter,
       eraFilter,
     };
